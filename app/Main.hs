@@ -11,4 +11,4 @@ main = do
   else do
     let filename = head args
     content <- readFile filename
-    print(tokenize content) 
+    mapM_ print (tokenize content) 

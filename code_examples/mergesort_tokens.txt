@@ -1,0 +1,387 @@
+TokenFn (AlexPn 0 1 1)
+Id (AlexPn 3 1 4) "main"
+OpenPar (AlexPn 7 1 8)
+ClosePar (AlexPn 8 1 9)
+OpenBraces (AlexPn 10 1 11)
+TokenLet (AlexPn 14 2 3)
+TokenMut (AlexPn 18 2 7)
+Id (AlexPn 22 2 11) "arr"
+Colon (AlexPn 25 2 14)
+OpenBrack (AlexPn 27 2 16)
+CloseBrack (AlexPn 28 2 17)
+Id (AlexPn 30 2 19) "u32"
+Equal (AlexPn 34 2 23)
+OpenBrack (AlexPn 36 2 25)
+IntLiteral (AlexPn 37 2 26) 3
+Comma (AlexPn 38 2 27)
+IntLiteral (AlexPn 39 2 28) 3
+Comma (AlexPn 40 2 29)
+IntLiteral (AlexPn 41 2 30) 4
+Comma (AlexPn 42 2 31)
+IntLiteral (AlexPn 43 2 32) 6
+Comma (AlexPn 44 2 33)
+IntLiteral (AlexPn 45 2 34) 7
+Comma (AlexPn 46 2 35)
+IntLiteral (AlexPn 47 2 36) 8
+CloseBrack (AlexPn 48 2 37)
+Semicolon (AlexPn 49 2 38)
+Id (AlexPn 53 3 3) "mergeSort"
+OpenPar (AlexPn 62 3 12)
+Id (AlexPn 63 3 13) "u32"
+Comma (AlexPn 66 3 16)
+Id (AlexPn 68 3 18) "arr"
+ClosePar (AlexPn 71 3 21)
+Semicolon (AlexPn 72 3 22)
+CloseBraces (AlexPn 74 4 1)
+TokenFn (AlexPn 77 6 1)
+Id (AlexPn 80 6 4) "mergeSort"
+OpenPar (AlexPn 89 6 13)
+Id (AlexPn 90 6 14) "T"
+Colon (AlexPn 91 6 15)
+Id (AlexPn 93 6 17) "type"
+Comma (AlexPn 97 6 21)
+TokenMut (AlexPn 99 6 23)
+Id (AlexPn 103 6 27) "arr"
+Colon (AlexPn 106 6 30)
+OpenBrack (AlexPn 108 6 32)
+CloseBrack (AlexPn 109 6 33)
+Id (AlexPn 111 6 35) "T"
+ClosePar (AlexPn 112 6 36)
+OpenBraces (AlexPn 114 6 38)
+TokenIf (AlexPn 118 7 3)
+OpenPar (AlexPn 121 7 6)
+Id (AlexPn 122 7 7) "arr"
+Dot (AlexPn 125 7 10)
+Id (AlexPn 126 7 11) "len"
+TokenCompSymb (AlexPn 130 7 15) "<="
+IntLiteral (AlexPn 133 7 18) 1
+ClosePar (AlexPn 134 7 19)
+OpenBraces (AlexPn 136 7 21)
+TokenReturn (AlexPn 142 8 5)
+CloseBraces (AlexPn 151 9 3)
+Semicolon (AlexPn 152 9 4)
+TokenLet (AlexPn 157 11 3)
+TokenMut (AlexPn 161 11 7)
+Id (AlexPn 165 11 11) "temp_arr"
+Colon (AlexPn 173 11 19)
+OpenBrack (AlexPn 175 11 21)
+CloseBrack (AlexPn 176 11 22)
+Id (AlexPn 177 11 23) "T"
+Equal (AlexPn 179 11 25)
+Id (AlexPn 181 11 27) "arr"
+Dot (AlexPn 184 11 30)
+Id (AlexPn 185 11 31) "copy"
+OpenPar (AlexPn 189 11 35)
+ClosePar (AlexPn 190 11 36)
+Semicolon (AlexPn 191 11 37)
+TokenLet (AlexPn 195 12 3)
+TokenMut (AlexPn 199 12 7)
+Id (AlexPn 203 12 11) "segment_size"
+Equal (AlexPn 216 12 24)
+IntLiteral (AlexPn 218 12 26) 1
+Semicolon (AlexPn 219 12 27)
+TokenWhile (AlexPn 223 13 3)
+OpenPar (AlexPn 229 13 9)
+Id (AlexPn 230 13 10) "segment_size"
+TokenCompSymb (AlexPn 243 13 23) "<"
+Id (AlexPn 245 13 25) "arr"
+Dot (AlexPn 248 13 28)
+Id (AlexPn 249 13 29) "len"
+ClosePar (AlexPn 252 13 32)
+OpenBraces (AlexPn 254 13 34)
+TokenLet (AlexPn 260 14 5)
+TokenMut (AlexPn 264 14 9)
+Id (AlexPn 268 14 13) "start"
+Equal (AlexPn 274 14 19)
+IntLiteral (AlexPn 276 14 21) 0
+Semicolon (AlexPn 277 14 22)
+TokenWhile (AlexPn 283 15 5)
+OpenPar (AlexPn 289 15 11)
+Id (AlexPn 290 15 12) "start"
+TokenCompSymb (AlexPn 296 15 18) "<"
+Id (AlexPn 298 15 20) "arr"
+Dot (AlexPn 301 15 23)
+Id (AlexPn 302 15 24) "len"
+ClosePar (AlexPn 305 15 27)
+OpenBraces (AlexPn 307 15 29)
+TokenLet (AlexPn 315 16 7)
+Id (AlexPn 319 16 11) "mid"
+Equal (AlexPn 323 16 15)
+Id (AlexPn 325 16 17) "min"
+OpenPar (AlexPn 328 16 20)
+Id (AlexPn 329 16 21) "start"
+Plus (AlexPn 335 16 27)
+Id (AlexPn 337 16 29) "segment_size"
+Comma (AlexPn 349 16 41)
+Id (AlexPn 351 16 43) "arr"
+Dot (AlexPn 354 16 46)
+Id (AlexPn 355 16 47) "len"
+ClosePar (AlexPn 358 16 50)
+Semicolon (AlexPn 359 16 51)
+TokenLet (AlexPn 367 17 7)
+Id (AlexPn 371 17 11) "end"
+Equal (AlexPn 375 17 15)
+Id (AlexPn 377 17 17) "min"
+OpenPar (AlexPn 380 17 20)
+Id (AlexPn 381 17 21) "start"
+Plus (AlexPn 387 17 27)
+IntLiteral (AlexPn 389 17 29) 2
+Times (AlexPn 391 17 31)
+Id (AlexPn 393 17 33) "segment_size"
+Comma (AlexPn 405 17 45)
+Id (AlexPn 407 17 47) "arr"
+Dot (AlexPn 410 17 50)
+Id (AlexPn 411 17 51) "len"
+ClosePar (AlexPn 414 17 54)
+Semicolon (AlexPn 415 17 55)
+Id (AlexPn 423 18 7) "merge"
+OpenPar (AlexPn 428 18 12)
+Id (AlexPn 429 18 13) "temp_arr"
+OpenBrack (AlexPn 437 18 21)
+Id (AlexPn 438 18 22) "start"
+DoubleDot (AlexPn 443 18 27)
+Id (AlexPn 445 18 29) "end"
+CloseBrack (AlexPn 448 18 32)
+Comma (AlexPn 449 18 33)
+Id (AlexPn 451 18 35) "arr"
+OpenBrack (AlexPn 454 18 38)
+Id (AlexPn 455 18 39) "start"
+DoubleDot (AlexPn 460 18 44)
+Id (AlexPn 462 18 46) "mid"
+CloseBrack (AlexPn 465 18 49)
+Comma (AlexPn 466 18 50)
+Id (AlexPn 468 18 52) "arr"
+OpenBrack (AlexPn 471 18 55)
+Id (AlexPn 472 18 56) "mid"
+DoubleDot (AlexPn 475 18 59)
+Id (AlexPn 477 18 61) "end"
+CloseBrack (AlexPn 480 18 64)
+ClosePar (AlexPn 481 18 65)
+Semicolon (AlexPn 482 18 66)
+Id (AlexPn 490 19 7) "start"
+Equal (AlexPn 496 19 13)
+Id (AlexPn 498 19 15) "start"
+Plus (AlexPn 504 19 21)
+IntLiteral (AlexPn 506 19 23) 2
+Times (AlexPn 508 19 25)
+Id (AlexPn 510 19 27) "segment_size"
+Semicolon (AlexPn 522 19 39)
+CloseBraces (AlexPn 528 20 5)
+Id (AlexPn 534 21 5) "memcpy"
+OpenPar (AlexPn 540 21 11)
+Id (AlexPn 541 21 12) "arr"
+Comma (AlexPn 544 21 15)
+Id (AlexPn 546 21 17) "temp_arr"
+ClosePar (AlexPn 554 21 25)
+Semicolon (AlexPn 555 21 26)
+Id (AlexPn 561 22 5) "segment_size"
+Equal (AlexPn 574 22 18)
+Id (AlexPn 576 22 20) "segment_size"
+Times (AlexPn 589 22 33)
+IntLiteral (AlexPn 591 22 35) 2
+Semicolon (AlexPn 592 22 36)
+CloseBraces (AlexPn 596 23 3)
+CloseBraces (AlexPn 598 24 1)
+TokenFn (AlexPn 601 26 1)
+Id (AlexPn 604 26 4) "merge"
+OpenPar (AlexPn 609 26 9)
+Id (AlexPn 610 26 10) "T"
+Colon (AlexPn 611 26 11)
+Id (AlexPn 613 26 13) "type"
+Comma (AlexPn 617 26 17)
+TokenMut (AlexPn 619 26 19)
+Id (AlexPn 623 26 23) "arr"
+Colon (AlexPn 626 26 26)
+OpenBrack (AlexPn 628 26 28)
+CloseBrack (AlexPn 629 26 29)
+Id (AlexPn 631 26 31) "T"
+Comma (AlexPn 632 26 32)
+Id (AlexPn 634 26 34) "left_arr"
+Colon (AlexPn 642 26 42)
+OpenBrack (AlexPn 644 26 44)
+CloseBrack (AlexPn 645 26 45)
+Id (AlexPn 646 26 46) "T"
+Comma (AlexPn 647 26 47)
+Id (AlexPn 649 26 49) "right_arr"
+Colon (AlexPn 658 26 58)
+OpenBrack (AlexPn 660 26 60)
+CloseBrack (AlexPn 661 26 61)
+Id (AlexPn 662 26 62) "T"
+ClosePar (AlexPn 663 26 63)
+OpenBraces (AlexPn 665 26 65)
+Div (AlexPn 669 27 3)
+Div (AlexPn 670 27 4)
+TokenLet (AlexPn 671 27 5)
+OpenPar (AlexPn 675 27 9)
+TokenMut (AlexPn 676 27 10)
+Id (AlexPn 680 27 14) "i"
+Comma (AlexPn 681 27 15)
+TokenMut (AlexPn 683 27 17)
+Id (AlexPn 687 27 21) "l"
+Comma (AlexPn 688 27 22)
+TokenMut (AlexPn 690 27 24)
+Id (AlexPn 694 27 28) "r"
+ClosePar (AlexPn 695 27 29)
+Equal (AlexPn 697 27 31)
+OpenPar (AlexPn 699 27 33)
+IntLiteral (AlexPn 700 27 34) 0
+Comma (AlexPn 701 27 35)
+IntLiteral (AlexPn 703 27 37) 0
+Comma (AlexPn 704 27 38)
+IntLiteral (AlexPn 706 27 40) 0
+ClosePar (AlexPn 707 27 41)
+Semicolon (AlexPn 708 27 42)
+TokenLet (AlexPn 712 28 3)
+TokenMut (AlexPn 716 28 7)
+Id (AlexPn 720 28 11) "i"
+Equal (AlexPn 722 28 13)
+IntLiteral (AlexPn 724 28 15) 0
+Semicolon (AlexPn 725 28 16)
+TokenLet (AlexPn 727 28 18)
+TokenMut (AlexPn 731 28 22)
+Id (AlexPn 735 28 26) "l"
+Equal (AlexPn 737 28 28)
+IntLiteral (AlexPn 739 28 30) 0
+Semicolon (AlexPn 740 28 31)
+TokenLet (AlexPn 742 28 33)
+TokenMut (AlexPn 746 28 37)
+Id (AlexPn 750 28 41) "r"
+Equal (AlexPn 752 28 43)
+IntLiteral (AlexPn 754 28 45) 0
+Semicolon (AlexPn 755 28 46)
+TokenWhile (AlexPn 759 29 3)
+OpenPar (AlexPn 765 29 9)
+Id (AlexPn 766 29 10) "l"
+TokenCompSymb (AlexPn 768 29 12) "<"
+Id (AlexPn 770 29 14) "left_arr"
+Dot (AlexPn 778 29 22)
+Id (AlexPn 779 29 23) "len"
+TokenAnd (AlexPn 783 29 27)
+Id (AlexPn 787 29 31) "r"
+TokenCompSymb (AlexPn 789 29 33) "<"
+Id (AlexPn 791 29 35) "right_arr"
+Dot (AlexPn 800 29 44)
+Id (AlexPn 801 29 45) "len"
+ClosePar (AlexPn 804 29 48)
+OpenBraces (AlexPn 806 29 50)
+TokenIf (AlexPn 812 30 5)
+OpenPar (AlexPn 815 30 8)
+Id (AlexPn 816 30 9) "left_arr"
+OpenBrack (AlexPn 824 30 17)
+Id (AlexPn 825 30 18) "l"
+CloseBrack (AlexPn 826 30 19)
+TokenCompSymb (AlexPn 828 30 21) "<"
+Id (AlexPn 830 30 23) "right_arr"
+OpenBrack (AlexPn 839 30 32)
+Id (AlexPn 840 30 33) "r"
+CloseBrack (AlexPn 841 30 34)
+ClosePar (AlexPn 842 30 35)
+OpenBraces (AlexPn 844 30 37)
+Id (AlexPn 852 31 7) "arr"
+OpenBrack (AlexPn 855 31 10)
+Id (AlexPn 856 31 11) "i"
+CloseBrack (AlexPn 857 31 12)
+Equal (AlexPn 859 31 14)
+Id (AlexPn 861 31 16) "left_arr"
+OpenBrack (AlexPn 869 31 24)
+Id (AlexPn 870 31 25) "l"
+CloseBrack (AlexPn 871 31 26)
+Semicolon (AlexPn 872 31 27)
+Id (AlexPn 880 32 7) "l"
+Equal (AlexPn 882 32 9)
+Id (AlexPn 884 32 11) "l"
+Plus (AlexPn 886 32 13)
+IntLiteral (AlexPn 888 32 15) 1
+Semicolon (AlexPn 889 32 16)
+CloseBraces (AlexPn 895 33 5)
+TokenElse (AlexPn 897 33 7)
+OpenBraces (AlexPn 902 33 12)
+Id (AlexPn 910 34 7) "arr"
+OpenBrack (AlexPn 913 34 10)
+Id (AlexPn 914 34 11) "i"
+CloseBrack (AlexPn 915 34 12)
+Equal (AlexPn 917 34 14)
+Id (AlexPn 919 34 16) "right_arr"
+OpenBrack (AlexPn 928 34 25)
+Id (AlexPn 929 34 26) "r"
+CloseBrack (AlexPn 930 34 27)
+Semicolon (AlexPn 931 34 28)
+Id (AlexPn 939 35 7) "r"
+Equal (AlexPn 941 35 9)
+Id (AlexPn 943 35 11) "r"
+Plus (AlexPn 945 35 13)
+IntLiteral (AlexPn 947 35 15) 1
+Semicolon (AlexPn 948 35 16)
+CloseBraces (AlexPn 954 36 5)
+Id (AlexPn 960 37 5) "i"
+Equal (AlexPn 962 37 7)
+Id (AlexPn 964 37 9) "i"
+Plus (AlexPn 966 37 11)
+IntLiteral (AlexPn 968 37 13) 1
+Semicolon (AlexPn 969 37 14)
+CloseBraces (AlexPn 973 38 3)
+TokenWhile (AlexPn 977 39 3)
+OpenPar (AlexPn 983 39 9)
+Id (AlexPn 984 39 10) "l"
+TokenCompSymb (AlexPn 986 39 12) "<"
+Id (AlexPn 988 39 14) "left_arr"
+Dot (AlexPn 996 39 22)
+Id (AlexPn 997 39 23) "len"
+ClosePar (AlexPn 1000 39 26)
+OpenBraces (AlexPn 1002 39 28)
+Id (AlexPn 1008 40 5) "arr"
+OpenBrack (AlexPn 1011 40 8)
+Id (AlexPn 1012 40 9) "i"
+CloseBrack (AlexPn 1013 40 10)
+Equal (AlexPn 1015 40 12)
+Id (AlexPn 1017 40 14) "left_arr"
+OpenBrack (AlexPn 1025 40 22)
+Id (AlexPn 1026 40 23) "l"
+CloseBrack (AlexPn 1027 40 24)
+Semicolon (AlexPn 1028 40 25)
+Id (AlexPn 1034 41 5) "i"
+Equal (AlexPn 1036 41 7)
+Id (AlexPn 1038 41 9) "i"
+Plus (AlexPn 1040 41 11)
+IntLiteral (AlexPn 1042 41 13) 1
+Semicolon (AlexPn 1043 41 14)
+Id (AlexPn 1049 42 5) "l"
+Equal (AlexPn 1051 42 7)
+Id (AlexPn 1053 42 9) "i"
+Plus (AlexPn 1055 42 11)
+IntLiteral (AlexPn 1057 42 13) 1
+Semicolon (AlexPn 1058 42 14)
+CloseBraces (AlexPn 1062 43 3)
+TokenWhile (AlexPn 1066 44 3)
+OpenPar (AlexPn 1072 44 9)
+Id (AlexPn 1073 44 10) "r"
+TokenCompSymb (AlexPn 1075 44 12) "<"
+Id (AlexPn 1077 44 14) "right_arr"
+Dot (AlexPn 1086 44 23)
+Id (AlexPn 1087 44 24) "len"
+ClosePar (AlexPn 1090 44 27)
+OpenBraces (AlexPn 1092 44 29)
+Id (AlexPn 1098 45 5) "arr"
+OpenBrack (AlexPn 1101 45 8)
+Id (AlexPn 1102 45 9) "i"
+CloseBrack (AlexPn 1103 45 10)
+Equal (AlexPn 1105 45 12)
+Id (AlexPn 1107 45 14) "right_arr"
+OpenBrack (AlexPn 1116 45 23)
+Id (AlexPn 1117 45 24) "r"
+CloseBrack (AlexPn 1118 45 25)
+Semicolon (AlexPn 1119 45 26)
+Id (AlexPn 1125 46 5) "i"
+Equal (AlexPn 1127 46 7)
+Id (AlexPn 1129 46 9) "i"
+Plus (AlexPn 1131 46 11)
+IntLiteral (AlexPn 1133 46 13) 1
+Semicolon (AlexPn 1134 46 14)
+Id (AlexPn 1140 47 5) "r"
+Equal (AlexPn 1142 47 7)
+Id (AlexPn 1144 47 9) "r"
+Plus (AlexPn 1146 47 11)
+IntLiteral (AlexPn 1148 47 13) 1
+Semicolon (AlexPn 1149 47 14)
+CloseBraces (AlexPn 1153 48 3)
+CloseBraces (AlexPn 1155 49 1)

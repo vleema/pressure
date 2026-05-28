@@ -1,0 +1,13 @@
+TokenFn (AlexPn 0 1 1)
+Id (AlexPn 3 1 4) "main"
+OpenPar (AlexPn 7 1 8)
+ClosePar (AlexPn 8 1 9)
+OpenBraces (AlexPn 9 1 10)
+TokenLet (AlexPn 15 2 5)
+Id (AlexPn 19 2 9) "a"
+Colon (AlexPn 20 2 10)
+Id (AlexPn 22 2 12) "u32"
+Equal (AlexPn 26 2 16)
+IntLiteral (AlexPn 28 2 18) 20
+Semicolon (AlexPn 30 2 20)
+CloseBraces (AlexPn 32 3 1)
