@@ -1,4 +1,7 @@
--- file: csv2.hs
+#!/usr/bin/env cabal
+{- cabal:
+build-depends: base, parsec
+-}
 import Text.ParserCombinators.Parsec
 
 csvFile = endBy line eol
@@ -14,3 +17,12 @@ mainParser input = case parseCSV input of
                   { Left err -> print err
                   ; Right ans -> print ans
                   }
+
+main :: IO ()
+main = do
+    str <- getContents
+    case parseCSV str of
+        Left err ->
+            print err
+        Right res ->
+            mapM_ print res

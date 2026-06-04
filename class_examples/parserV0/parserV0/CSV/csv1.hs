@@ -1,4 +1,8 @@
--- file: csv1.hs
+#!/usr/bin/env cabal
+{- cabal:
+build-depends: base, parsec
+-}
+
 import Text.ParserCombinators.Parsec
 
 {- A CSV file contains 0 or more lines, each of which is terminated
@@ -44,3 +48,13 @@ eol = char '\n'
 
 parseCSV :: String -> Either ParseError [[String]]
 parseCSV input = parse csvFile "(unknown)" input
+
+main :: IO ()
+main = do
+    str <- getContents
+    case parseCSV str of
+        Left err ->
+            print err
+        Right res ->
+            mapM_ print res
+
