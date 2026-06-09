@@ -21,6 +21,7 @@ library
         Parser,
         Lexer,
         ParserHelpers.Terminals,
+        ParserHelpers.PrettyPrint,
     hs-source-dirs:
         src
     build-depends:

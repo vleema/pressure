@@ -1,9 +1,13 @@
+{-# LANGUAGE RecordWildCards #-}
+{- HLINT ignore "Use camelCase" -}
 module Parser (
     parser,
     program,
     varDecl,
     mainFunc,
     subprogram,
+    RootNode(..),
+    showType,
     VarInfo(..),
     SubProgramInfo(..),
     ParserState(..),
@@ -17,6 +21,7 @@ module Parser (
     Expr(..),
     BinOp(..),
     Primary(..),
+    StructField(..),
     BaseExpression(..),
     DerivedExpression(..),
     Lit(..),
@@ -29,6 +34,7 @@ import Text.Parsec
 import Text.Parsec.Pos
 import Control.Monad.IO.Class
 import ParserHelpers.Terminals
+import Data.List (intercalate)
 
 -- AST 
 data VarDecl = VarDecl
@@ -77,8 +83,8 @@ data GlobalDeclType
     deriving (Show, Eq)
 
 data Expr
-    = AssignExpr Expr Expr             
-    | BinaryExpr BinOp Expr Expr       
+    = AssignExpr Expr Expr
+    | BinaryExpr BinOp Expr Expr
     | PrimaryExpr Primary
     deriving (Show, Eq)
 
@@ -140,9 +146,9 @@ data SubProgramInfo = SubProgramInfo
   } deriving (Show, Eq)
 
 -- atributos dos campos de um struct
-data StructField = StructField 
+data StructField = StructField
   { fieldName :: String
-  , fieldType :: Type 
+  , fieldType :: Type
   } deriving (Show, Eq)
 
 -- atributos de uma struct na tabela de símbolos
@@ -169,6 +175,8 @@ showType (TyBase s)  = s
 showType (TyArray t) = "[]" ++ showType t
 
 -- Regras da gramatica. Construcao da arvore e criacao do estado
+
+newtype RootNode = RootNode [GlobalDeclType]
 
 -- NOTE : No codigo do prof ele tambem mantem uma lista de todos os tokens lidos. Nao sei se fez so por debug ou se 
 -- eh importante para algo
@@ -198,21 +206,23 @@ global_decl =
       )
 
 
-program :: ParsecT [Token] ParserState IO [GlobalDeclType]
-program = global_decl
+program :: ParsecT [Token] ParserState IO RootNode
+program = do 
+  declarations <- global_decl
+  return (RootNode declarations)
 
 -- <var> → let <id> | let <id> : <type_specifier> | let <id> = <const_expr> | let <id> : <type_specifier> = <const_expr>
 varDecl :: ParsecT [Token] ParserState IO VarDecl
 varDecl = do
   _ <- letP
   name <- idP
-  
+
   -- tipo opcional
   typeSpec <- optionMaybe (do
     _ <- colonP
     ts <- typeSpecifier
     return ts)
-    
+
   -- init opcional
   initVal <- optionMaybe (do
     _ <- equalP
@@ -228,17 +238,17 @@ varDecl = do
       tName = case typeSpec of
                 Just ts -> showType (typeVal ts)
                 Nothing -> "unknown"
-                
+
   let newVar = VarInfo scope name tName isMut
   updateState (\s -> s { symTable = symTable s ++ [newVar] })
-  
+
   liftIO $ putStrLn $ "[DEBUG] Variavel '" ++ name ++ "' declarada no escopo '" ++ scope ++ "' (Mutavel: " ++ show isMut ++ ", Tipo: " ++ tName ++ ")."
 
   return (VarDecl name typeSpec initVal)
 
 -- <type_specifier> → mut <type> | <type>
 typeSpecifier :: ParsecT [Token] ParserState IO TypeSpec
-typeSpecifier = 
+typeSpecifier =
   (do
     _ <- mutP
     t <- typeRule
@@ -271,7 +281,7 @@ structDecl = do
     _ <- openBraceP
     fList <- struct_fields
     _ <- closeBraceP
-    
+
     -- salvando na tabela de structs
     let novoStruct = StructDefInfo { structName = sName, structFields = fList }
     modifyState (\st -> st { structTable = novoStruct : structTable st })
@@ -294,46 +304,46 @@ subprogram :: ParsecT [Token] ParserState IO FnDecl
 subprogram = do
   _ <- fnP
   name <- idP
-  
+
   _ <- openParP
   params <- paramt_list
   _ <- closeParP
-  
+
   if name == "main" && null params
     then fail "A funcao 'main' sem parametros nao pode ser declarada como um subprograma comum."
     else return ()
-  
+
   -- guarda escopo anterioro e troca para o novo
   oldState <- getState
   let oldScope = curScope oldState
   updateState (\s -> s { curScope = name })
-  
+
   -- salvar parametros na tabela de simbolos
   let paramVars = map (\(ParamDecl pMut pType pName) -> VarInfo name pName (showType pType) pMut) params
   updateState (\s -> s { symTable = symTable s ++ paramVars })
-  
+
   -- Tipo de retorno opcional
   retType <- optionMaybe (do
     t <- typeRule
     return t)
-    
+
   -- Corpo do subprograma
   _ <- openBraceP
   bodyStmts <- statements
   _ <- closeBraceP
-  
+
   -- restaurar escopo
   updateState (\s -> s { curScope = oldScope })
-  
+
   -- popular a tabela de subprograma
   let paramList = map (\(ParamDecl pMut pType pName) -> (pName, showType pType, pMut)) params
       retTypeName = fmap showType retType
       newSub = SubProgramInfo name paramList retTypeName
-      
+
   updateState (\s -> s { subTable = subTable s ++ [newSub] })
 
   -- TODO : limpar os simbolos da tabela
-  
+
   liftIO $ putStrLn $ "[DEBUG] Subprograma '" ++ name ++ "' declarado."
   liftIO $ putStrLn $ "        Parametros: " ++ show paramList
   liftIO $ putStrLn $ "        Retorno: " ++ show retTypeName
@@ -371,25 +381,25 @@ mainFunc = do
     else do
       _ <- openParP
       _ <- closeParP
-      
+
       -- Escopo main
       oldState <- getState
       let oldScope = curScope oldState
       updateState (\s -> s { curScope = "main" })
-      
+
       _ <- openBraceP
       bodyStmts <- statements
       _ <- closeBraceP
-      
+
       -- restaurar escopo
       updateState (\s -> s { curScope = oldScope })
-      
+
       -- popular tabela do subprograma
       let newSub = SubProgramInfo "main" [] Nothing
       updateState (\s -> s { subTable = subTable s ++ [newSub] })
-      
+
       liftIO $ putStrLn $ "[DEBUG] Subprograma 'main' declarado."
-      
+
       return (FnMainDecl bodyStmts)
 
 -- <statements> → <statement> | <statement> <statements> | #sym.epsilon
@@ -444,12 +454,12 @@ ifElseStmt = do
   _ <- openParP
   cond <- expr
   _ <- closeParP
-  
+
   -- then
   _ <- openBraceP
   thenBody <- statements
   _ <- closeBraceP
-  
+
   -- else (se nao houver, retorna lista vaziaa)
   elsePart <- optionMaybe (do
     _ <- elseP
@@ -457,7 +467,7 @@ ifElseStmt = do
     elseBody <- statements
     _ <- closeBraceP
     return elseBody)
-    
+
   return (IfElseStmt cond thenBody elsePart)
 
 -- <repeat_stmt> → while(<expr>){statements}
@@ -467,11 +477,11 @@ repeatStmt = do
   _ <- openParP
   cond <- expr
   _ <- closeParP
-  
+
   _ <- openBraceP
   body <- statements
   _ <- closeBraceP
-  
+
   return (ReptStmt cond body)
 
 -- <return_stmt> → return | return <expr>
@@ -646,11 +656,11 @@ literal =
     return (LitBool val)
   )
 
-programWithState :: ParsecT [Token] ParserState IO ([GlobalDeclType], ParserState)
+programWithState :: ParsecT [Token] ParserState IO (RootNode, ParserState)
 programWithState = do
   ast <- program
   st <- getState
   return (ast, st)
 
-parser :: [Token] -> IO (Either ParseError ([GlobalDeclType], ParserState))
-parser tokens = runParserT programWithState initialState "ERRO DE PARSING!" tokens
+parser :: [Token] -> IO (Either ParseError (RootNode, ParserState))
+parser = runParserT programWithState initialState "ERRO DE PARSING!"

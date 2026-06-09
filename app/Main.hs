@@ -2,6 +2,7 @@ module Main where
 import System.Environment
 import Lexer (tokenize)
 import Parser
+import ParserHelpers.PrettyPrint()
 
 main :: IO ()
 main = do
@@ -16,6 +17,6 @@ main = do
     case res of
       Left err -> print err
       Right (result, state) -> do
-        mapM_ print result
+        print result
         putStrLn "\nParser State:"
         print state
