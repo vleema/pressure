@@ -138,6 +138,20 @@ testParseProgram = do
     Program [TopLevelStmt (Stmt _ (ExprStmt (Expr _ (BinaryExpr MulOp (Expr _ (IntLit 1)) (Expr _ (UnaryExpr NegOp (Expr _ (IntLit 2))))))))] -> return ()
     other -> error $ "unexpected AST for unary precedence: " ++ show other
 
+  ast19 <-
+    assertRight "parse function expression" $
+      runAlex "add :: fn(a: i32, b: i32) -> i32 { a + b };" parseProgram
+  case ast19 of
+    Program [TopLevelStmt (Stmt _ (DeclStmt (ValueDecl Constant _ Nothing (Just (Expr _ (FnExpr [Param _ (IntType _ _ _), Param _ (IntType _ _ _)] (IntType _ _ _) _))))))] -> return ()
+    other -> error $ "unexpected AST for function expression: " ++ show other
+
+  ast20 <-
+    assertRight "parse call expression" $
+      runAlex "add(1, 2);" parseProgram
+  case ast20 of
+    Program [TopLevelStmt (Stmt _ (ExprStmt (Expr _ (CallExpr (Expr _ (VarExpr (Ident _ "add"))) [Expr _ (IntLit 1), Expr _ (IntLit 2)]))))] -> return ()
+    other -> error $ "unexpected AST for call expression: " ++ show other
+
 testParseRepl :: IO ()
 testParseRepl = do
   ast <-

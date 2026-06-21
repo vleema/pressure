@@ -19,6 +19,7 @@ import Ast.Syntax
     FloatSize (..),
     Ident (..),
     IntSize (..),
+    Param (..),
     Program (..),
     Repl (..),
     Sign (..),
@@ -55,13 +56,15 @@ evalExpr (Expr _ kind) = case kind of
   BinaryExpr op l r -> evalBinaryExpr op l r
   VarExpr (Ident _ i) -> evalVarExpr i
   IfExpr c t elseBlock -> evalIfExpr c t elseBlock
+  FnExpr params ret body -> evalFnExpr params ret body
+  CallExpr callee args -> evalCallExpr callee args
 
 evalIfExpr :: TypedExpr -> TypedBlock -> Maybe TypedBlock -> Eval Value
 evalIfExpr c t me = do
   v <- evalExpr c
   case v of
-    VBool True -> evalBlock t
-    VBool False -> maybe (return VUnit) evalBlock me
+    VBool True -> evalScopedBlock t
+    VBool False -> maybe (return VUnit) evalScopedBlock me
     _ -> throwError $ RuntimeError "if condition must be bool"
 
 evalStmt :: TypedStmt -> Eval Value
@@ -73,6 +76,41 @@ evalBlock :: TypedBlock -> Eval Value
 evalBlock (Block stmts expr) = do
   mapM_ evalStmt stmts
   maybe (return VUnit) evalExpr expr
+
+evalScopedBlock :: TypedBlock -> Eval Value
+evalScopedBlock block = do
+  env <- get
+  val <- evalBlock block
+  modify (const env)
+  return val
+
+evalFnExpr :: [Param] -> Type -> TypedBlock -> Eval Value
+evalFnExpr params ret body = do
+  env <- get
+  return $ VFunction params ret body env
+
+evalCallExpr :: TypedExpr -> [TypedExpr] -> Eval Value
+evalCallExpr callee args = do
+  fn <- evalExpr callee
+  argVals <- mapM evalExpr args
+  callValue fn argVals
+
+callValue :: Value -> [Value] -> Eval Value
+callValue (VFunction params _ body capturedEnv) argVals = do
+  if length params /= length argVals
+    then throwError $ RuntimeError "wrong number of arguments"
+    else do
+      callerEnv <- get
+      modify $ const $ bindArgs params argVals capturedEnv
+      val <- evalBlock body
+      modify $ const callerEnv
+      return val
+callValue _ _ = throwError $ RuntimeError "attempted to call non-function"
+
+bindArgs :: [Param] -> [Value] -> Env -> Env
+bindArgs params argVals env = foldr bind env (zip params argVals)
+  where
+    bind (Param (Ident _ name) _, val) = Map.insert name val
 
 evalUnaryExpr :: UnaryOp -> TypedExpr -> Eval Value
 evalUnaryExpr op e = do
@@ -191,6 +229,7 @@ defaultValue = \case
   IntType _ s k -> VInt s k 0
   FloatType _ k -> VFloat k 0
   BoolType _ -> VBool False
+  FnType _ _ _ -> VEmpty
   UnitType -> VUnit
   TypeName _ -> VEmpty
 

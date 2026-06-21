@@ -82,9 +82,8 @@ TopLevels : TopLevel TopLevels { $1 : $2 }
 TopLevel : Stmt   { TopLevelStmt $1 }
          | IfExpr { TopLevelStmt (Stmt (exprPos $1) (ExprStmt $1)) }
 
-ReplInput : Stmt { ReplStmt $1 }
-          | ValueDecl { ReplStmt (Stmt (declPos $1) (DeclStmt $1)) }
-          | Expr { ReplExpr $1 }
+ReplInput : Stmt      { ReplStmt $1 }
+          | Expr      { ReplExpr $1 }
 
 {- statements -}
 
@@ -105,10 +104,21 @@ BlockBody : Expr           { Block [] (Just $1) }
           | Stmt BlockBody { prependStmt $1 $2 }
 
 Expr : IfExpr        { $1 }
+     | FnExpr        { $1 }
      | LogicalOrExpr { $1 }
 
 IfExpr : if Expr Block            { Expr (token_posn $1) (IfExpr $2 $3 Nothing) }
        | if Expr Block else Block { Expr (token_posn $1) (IfExpr $2 $3 (Just $5)) }
+
+FnExpr : fn '(' FnParams ')' '->' Type Block { Expr (token_posn $1) (FnExpr $3 $6 $7) }
+
+FnParams : FnParamList { $1 }
+         |             { [] }
+
+FnParamList : FnParam                 { [$1] }
+            | FnParam ',' FnParamList { $1 : $3 }
+
+FnParam : ID ':' Type { Param (toIdent $1) $3 }
 
 LogicalOrExpr : LogicalOrExpr or LogicalAndExpr { Expr (token_posn $2) (BinaryExpr OrOp $1 $3) }
               | LogicalAndExpr                  { $1 }
@@ -137,7 +147,16 @@ MulExpr : MulExpr '*' UnaryExpr { Expr (token_posn $2) (BinaryExpr MulOp $1 $3) 
 UnaryExpr : '-' UnaryExpr { Expr (token_posn $1) (UnaryExpr NegOp $2) }
           | '&' UnaryExpr { Expr (token_posn $1) (UnaryExpr AmpersandOp $2) }
           | '!' UnaryExpr { Expr (token_posn $1) (UnaryExpr NotOp $2) }
-          | AtomExpr      { $1 }
+          | CallExpr      { $1 }
+
+CallExpr : AtomExpr              { $1 }
+         | CallExpr '(' Args ')' { Expr (exprPos $1) (CallExpr $1 $3) }
+
+Args : ArgList { $1 }
+     |         { [] }
+
+ArgList : Expr             { [$1] }
+        | Expr ',' ArgList { $1 : $3 }
 
 AtomExpr : INT_LITERAL   { toIntLit $1 }
          | FLOAT_LITERAL { toFloatLit $1 }
@@ -152,7 +171,16 @@ OptType : Type { Just $1 }
         |      { Nothing }
 
 Type : ID       { TypeName (toIdent $1) }
+     | FnType   { $1 }
      | TypeLit  { $1 }
+
+FnType : fn '(' FnParamsTypes ')' '->' Type { FnType (token_posn $1) $3 $6 }
+
+FnParamsTypes : FnParamsTypesList { $1 }
+              |                   { [] }
+
+FnParamsTypesList : Type                       { [$1] }
+                  | Type ',' FnParamsTypesList { $1 : $3 }
 
 TypeLit : bool  { BoolType (token_posn $1) }
         | int   { IntType (token_posn $1) Signed I32 }

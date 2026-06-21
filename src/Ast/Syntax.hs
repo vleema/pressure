@@ -12,6 +12,7 @@ module Ast.Syntax
     ParsedStmt,
     ParsedRepl,
     ParsedDecl,
+    Param (..),
     Repl (..),
     Decl (..),
     Ident (..),
@@ -27,6 +28,7 @@ module Ast.Syntax
   )
 where
 
+import Data.Map.Strict qualified as Map
 import Lexer (AlexPosn)
 
 newtype Program a = Program [TopLevel a]
@@ -85,6 +87,9 @@ instance Functor Decl where
 
 type ParsedDecl = Decl AlexPosn
 
+data Param = Param Ident Type
+  deriving (Show, Eq)
+
 data Ident = Ident AlexPosn String
   deriving (Show, Eq)
 
@@ -105,6 +110,7 @@ data Type
   | BoolType AlexPosn
   | IntType AlexPosn Sign IntSize
   | FloatType AlexPosn FloatSize
+  | FnType AlexPosn [Type] Type
   | UnitType
   deriving (Show, Eq)
 
@@ -148,6 +154,8 @@ data ExprKind annot
   | UnaryExpr UnaryOp (Expr annot)
   | VarExpr Ident
   | IfExpr (Expr annot) (Block annot) (Maybe (Block annot))
+  | FnExpr [Param] Type (Block annot)
+  | CallExpr (Expr annot) [Expr annot]
   deriving (Show, Eq)
 
 instance Functor ExprKind where
@@ -159,12 +167,15 @@ instance Functor ExprKind where
     UnaryExpr op e -> UnaryExpr op (fmap f e)
     VarExpr i -> VarExpr i
     IfExpr c t e -> IfExpr (fmap f c) (fmap f t) (fmap (fmap f) e)
+    FnExpr params ret body -> FnExpr params ret (fmap f body)
+    CallExpr callee args -> CallExpr (fmap f callee) (fmap (fmap f) args)
 
 data Value
   = VInt Sign IntSize Integer
   | VFloat FloatSize Double
   | VBool Bool
   | VUnit
+  | VFunction [Param] Type (Block Type) (Map.Map String Value)
   | VEmpty
   deriving (Eq)
 
@@ -175,4 +186,5 @@ instance Show Value where
     VBool True -> "true"
     VBool False -> "false"
     VUnit -> "()"
+    VFunction {} -> "<function>"
     VEmpty -> undefined

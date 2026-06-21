@@ -11,6 +11,7 @@ module Ast
     ParsedStmt,
     ParsedRepl,
     ParsedDecl,
+    Param (..),
     Repl (..),
     Decl (..),
     Ident (..),

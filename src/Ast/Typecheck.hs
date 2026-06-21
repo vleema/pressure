@@ -32,7 +32,10 @@ data Error
   | UnsupportedOp AlexPosn BinaryOp Type Type
   | UnsupportedUnaryOp AlexPosn UnaryOp Type
   | MissingAnnotation AlexPosn
+  | DuplicateParams AlexPosn String
   | UndefinedVariable AlexPosn String
+  | NotCallable AlexPosn Type
+  | ArityMismatch AlexPosn Int Int
   deriving (Show, Eq)
 
 type TypeEnv = Map String Type
@@ -77,6 +80,8 @@ checkExprM (Expr pos k) = case k of
       Just typ -> return $ Expr typ (VarExpr i)
       Nothing -> liftEither $ Left $ UndefinedVariable pos name
   IfExpr c t e -> checkIfExpr pos c t e
+  FnExpr params ret body -> checkFnExpr pos params ret body
+  CallExpr callee args -> checkCallExpr pos callee args
 
 checkIfExpr :: AlexPosn -> ParsedExpr -> ParsedBlock -> Maybe ParsedBlock -> Check TypedExpr
 checkIfExpr pos c t e = do
@@ -101,6 +106,45 @@ checkUnaryExpr pos op e = do
     NegOp -> if isNumeric tye then Right $ Expr tye (UnaryExpr op te) else Left $ UnsupportedUnaryOp pos op tye
     NotOp -> if isBoolLike tye then Right $ Expr tye (UnaryExpr op te) else Left $ UnsupportedUnaryOp pos op tye
     AmpersandOp -> Left $ UnsupportedUnaryOp pos op tye
+
+checkFnExpr :: AlexPosn -> [Param] -> Type -> ParsedBlock -> Check TypedExpr
+checkFnExpr pos params ret body = do
+  checkDuplicateParams params
+  env <- get
+  mapM_ bindParam params
+  typedBody <- checkBlockM body
+  put env
+  unless (compatible ret (blockType typedBody)) $ liftEither $ Left $ TypeMismatch pos ret (blockType typedBody)
+  return $ Expr (FnType pos (map paramType params) ret) (FnExpr params ret typedBody)
+
+checkFnSig :: AlexPosn -> [Param] -> Type -> Check ()
+checkFnSig pos params ret = do
+  checkDuplicateParams params
+  env <- get
+  mapM_ bindParam params
+  put env
+
+checkDuplicateParams :: [Param] -> Check ()
+checkDuplicateParams = go Map.empty
+  where
+    go _ [] = return ()
+    go seen (Param (Ident pos name) _ : rest)
+      | Map.member name seen = liftEither $ Left $ DuplicateParams pos name
+      | otherwise = go (Map.insert name () seen) rest
+
+checkCallExpr :: AlexPosn -> ParsedExpr -> [ParsedExpr] -> Check TypedExpr
+checkCallExpr pos callee args = do
+  typedCallee <- checkExprM callee
+  typedArgs <- mapM checkExprM args
+  case typeOf typedCallee of
+    FnType _ paramTypes ret -> do
+      unless (length paramTypes == length typedArgs) $ liftEither $ Left $ ArityMismatch pos (length paramTypes) (length typedArgs)
+      mapM_ checkArg (zip paramTypes typedArgs)
+      return $ Expr ret (CallExpr typedCallee typedArgs)
+    other -> liftEither $ Left $ NotCallable pos other
+  where
+    checkArg (expected, actual) =
+      unless (compatible expected (typeOf actual)) $ liftEither $ Left $ TypeMismatch pos expected (typeOf actual)
 
 checkBinaryExpr :: AlexPosn -> BinaryOp -> ParsedExpr -> ParsedExpr -> Check TypedExpr
 checkBinaryExpr pos op l r = do
@@ -165,6 +209,7 @@ compatible t1 t2 = case (t1, t2) of
   (IntType _ s1 k1, IntType _ s2 k2) -> s1 == s2 && k1 == k2
   (FloatType _ k1, FloatType _ k2) -> k1 == k2
   (BoolType _, BoolType _) -> True
+  (FnType _ ps1 r1, FnType _ ps2 r2) -> length ps1 == length ps2 && and (zipWith compatible ps1 ps2) && compatible r1 r2
   (UnitType, UnitType) -> True
   (TypeName _, _) -> True
   (_, TypeName _) -> True
@@ -211,11 +256,17 @@ checkDecl = \case
     bindIdent i t
     return $ ValueDecl m i (Just t) (Just te)
 
+identPos :: Ident -> AlexPosn
+identPos (Ident pos _) = pos
+
 bindIdent :: Ident -> Type -> Check ()
 bindIdent (Ident _ name) typ = modify (Map.insert name typ)
 
-identPos :: Ident -> AlexPosn
-identPos (Ident pos _) = pos
+bindParam :: Param -> Check ()
+bindParam (Param ident typ) = bindIdent ident typ
+
+paramType :: Param -> Type
+paramType (Param _ typ) = typ
 
 -- Blocks
 

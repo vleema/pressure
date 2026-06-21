@@ -61,6 +61,9 @@ testAst = do
   testIfElseStatementEval
   testUnaryNegEval
   testUnaryNotEval
+  testFunctionEval
+  testClosureCapturesByValue
+  testFunctionLocalScope
 
 withTokens :: String -> String -> (ParsedProgram -> IO ()) -> IO ()
 withTokens name source f = do
@@ -282,6 +285,42 @@ testUnaryNotEval = do
         case Map.lookup "x" env of
           Just (VBool True) -> return ()
           other -> error $ "expected x = true, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testFunctionEval :: IO ()
+testFunctionEval = do
+  withTokens "function eval" "add :: fn(a: i32, b: i32) -> i32 { a + b }; result: i32 = add(1, 2);" $ \ast -> do
+    result <- evalParsed "function eval" ast
+    case result of
+      Right (_, env) ->
+        case Map.lookup "result" env of
+          Just (VInt Signed I32 3) -> return ()
+          other -> error $ "expected result = 3, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testClosureCapturesByValue :: IO ()
+testClosureCapturesByValue = do
+  withTokens "closure captures by value" "x :: 10; addX :: fn(y: i32) -> i32 { x + y }; x :: 20; result: i32 = addX(5);" $ \ast -> do
+    result <- evalParsed "closure captures by value" ast
+    case result of
+      Right (_, env) ->
+        case Map.lookup "result" env of
+          Just (VInt Signed I32 15) -> return ()
+          other -> error $ "expected result = 15, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testFunctionLocalScope :: IO ()
+testFunctionLocalScope = do
+  withTokens "function local scope" "f :: fn() -> i32 { x :: 1; x }; result: i32 = f();" $ \ast -> do
+    result <- evalParsed "function local scope" ast
+    case result of
+      Right (_, env) -> do
+        case Map.lookup "result" env of
+          Just (VInt Signed I32 1) -> return ()
+          other -> error $ "expected result = 1, got " ++ show other
+        case Map.lookup "x" env of
+          Nothing -> return ()
+          other -> error $ "expected function local x to be absent, got " ++ show other
       Left err -> error $ "eval failed: " ++ show err
 
 pos0 :: Lexer.AlexPosn
