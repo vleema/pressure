@@ -1,5 +1,9 @@
 # Pressure Todos
 
+## CI
+
+- [ ] Implement CI with tests and build procedure.
+
 ## Language
 
 - [ ] Add support for conditionals (grammar, interpreter)
@@ -17,4 +21,4 @@
 
 ## REPL
 
-- [ ] Add support for control characters in the REPL
+- [ ] Add support for control characters in the REPL.
