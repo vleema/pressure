@@ -24,6 +24,7 @@
             tools = hp: {
               inherit (hp) alex;
               inherit (hp) happy;
+              inherit (hp) hlint;
             };
             hlsCheck.enable = true; # Requires sandbox to be disabled
           };
