@@ -36,6 +36,7 @@ testAst = do
   testIfElseStatementEval
   testUnaryNegEval
   testUnaryNotEval
+  testUnitFunctionSugar
   testFunctionEval
   testClosureCapturesByValue
   testFunctionLocalScope

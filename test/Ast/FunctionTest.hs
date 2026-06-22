@@ -1,5 +1,6 @@
 module Ast.FunctionTest
-  ( testFunctionEval,
+  ( testUnitFunctionSugar,
+    testFunctionEval,
     testClosureCapturesByValue,
     testFunctionLocalScope,
     testDirectRecursion,
@@ -19,6 +20,18 @@ import Eval (evalReplInput)
 import Lexer (runAlex)
 import Parser (parseRepl)
 import TestUtil
+import TestUtil (evalParsed, withTokens)
+
+testUnitFunctionSugar :: IO ()
+testUnitFunctionSugar = do
+  withTokens "unit funcition sugar" "sugar :: fn() {}; result: unit  = sugar();" $ \ast -> do
+    result <- evalParsed "unit function sugar" ast
+    case result of
+      Left err -> error $ "eval failed: " ++ show err
+      Right (_, env) ->
+        case lookupValue "result" env of
+          Just VUnit -> return ()
+          other -> error $ "expected result = (), got " ++ show other
 
 testFunctionEval :: IO ()
 testFunctionEval = do

@@ -112,6 +112,7 @@ IfExpr : if Expr Block            { Expr (token_posn $1) (IfExpr $2 $3 Nothing) 
        | if Expr Block else Block { Expr (token_posn $1) (IfExpr $2 $3 (Just $5)) }
 
 FnExpr : fn '(' FnParams ')' '->' Type Block { Expr (token_posn $1) (FnExpr $3 $6 $7) }
+       | fn '(' FnParams ')' Block { Expr (token_posn $1) (FnExpr $3 UnitType $5) }
 
 FnParams : FnParamList { $1 }
          |             { [] }
