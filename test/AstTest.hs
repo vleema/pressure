@@ -1,6 +1,7 @@
 module AstTest (astTests) where
 
 import Ast.ArithTest (arithTests)
+import Ast.AssignTest (assignTests)
 import Ast.ControlTest (controlTests)
 import Ast.ErrorTest (errorTests)
 import Ast.FunctionTest (functionTests)
@@ -13,6 +14,7 @@ astTests =
     "ast"
     [ literalTests,
       arithTests,
+      assignTests,
       errorTests,
       controlTests,
       functionTests

@@ -42,6 +42,7 @@ data Error
   | UndefinedType AlexPosn String
   | NotCallable AlexPosn Type
   | ArityMismatch AlexPosn Int Int
+  | AssignToConstant AlexPosn String
   deriving (Show, Eq)
 
 errorPos :: Error -> AlexPosn
@@ -57,6 +58,7 @@ errorPos = \case
   UndefinedType pos _ -> pos
   NotCallable pos _ -> pos
   ArityMismatch pos _ _ -> pos
+  AssignToConstant pos _ -> pos
 
 errorInfo :: Error -> (AlexPosn, String)
 errorInfo err =
@@ -73,9 +75,10 @@ errorInfo err =
       UndefinedType _ name -> "undefined type '" ++ name ++ "'"
       NotCallable _ t -> "cannot call value of type '" ++ prettyType t ++ "'"
       ArityMismatch _ expected actual -> "wrong number of arguments: expected " ++ show expected ++ ", got " ++ show actual
+      AssignToConstant _ name -> "cannot assign to constant '" ++ name ++ "'"
   )
 
-type TypeEnv = [Map String Type]
+type TypeEnv = [Map String (Type, Mutability)]
 
 type Check a = StateT TypeEnv (Either Error) a
 
@@ -99,17 +102,17 @@ checkType (TypeSyntax pos k) = case k of
 emptyEnv :: TypeEnv
 emptyEnv = []
 
-lookupName :: String -> TypeEnv -> Maybe Type
+lookupName :: String -> TypeEnv -> Maybe (Type, Mutability)
 lookupName _ [] = Nothing
 lookupName name (scope : rest) =
   case Map.lookup name scope of
-    Just typ -> Just typ
+    Just tm -> Just tm
     Nothing -> lookupName name rest
 
-bindInCurrentScope :: String -> Type -> TypeEnv -> TypeEnv
-bindInCurrentScope name typ [] = [Map.singleton name typ]
-bindInCurrentScope name typ (scope : rest) =
-  Map.insert name typ scope : rest
+bindInCurrentScope :: String -> (Type, Mutability) -> TypeEnv -> TypeEnv
+bindInCurrentScope name tm [] = [Map.singleton name tm]
+bindInCurrentScope name tm (scope : rest) =
+  Map.insert name tm scope : rest
 
 globalEnv :: TypeEnv -> TypeEnv
 globalEnv [] = []
@@ -145,7 +148,7 @@ checkExprM (ParsedExpr pos k) = case k of
   ParsedVarExpr i@(Ident _ name) -> do
     env <- get
     case lookupName name env of
-      Just typ -> return $ TypedExpr pos typ (TypedVarExpr i)
+      Just (typ, _) -> return $ TypedExpr pos typ (TypedVarExpr i)
       Nothing -> liftEither $ Left $ UndefinedVariable pos name
   ParsedIfExpr c t e -> checkIfExpr pos c t e
   ParsedFnExpr params ret body -> checkFnExpr pos params ret body
@@ -281,6 +284,7 @@ checkStmtM :: ParsedStmt -> Check TypedStmt
 checkStmtM (ParsedStmt pos k) = case k of
   ParsedDeclStmt decl -> TypedStmt pos . TypedDeclStmt <$> checkDecl decl
   ParsedExprStmt expr -> TypedStmt pos . TypedExprStmt <$> checkExprM expr
+  ParsedAssignStmt assign -> TypedStmt pos . TypedAssignStmt <$> checkAssign assign
 
 checkFunctionItemStmt :: ParsedStmt -> Check TypedStmt
 checkFunctionItemStmt (ParsedStmt pos (ParsedDeclStmt (ParsedValueDecl m ident mts (Just expr@(ParsedExpr _ (ParsedFnExpr {})))))) = do
@@ -301,32 +305,43 @@ checkDecl = \case
   ParsedValueDecl mut ident Nothing (Just expr) -> do
     typedExpr <- checkExprM expr
     let inferred = typeOf typedExpr
-    bindIdent ident inferred
+    bindIdent ident inferred mut
     return $ TypedValueDecl mut ident inferred (Just typedExpr)
-  ParsedValueDecl m i (Just ts) Nothing -> do
+  ParsedValueDecl mut i (Just ts) Nothing -> do
     t <- checkType ts
-    bindIdent i t
-    return $ TypedValueDecl m i t Nothing
-  ParsedValueDecl m i (Just ts) (Just e) -> do
+    bindIdent i t mut
+    return $ TypedValueDecl mut i t Nothing
+  ParsedValueDecl mut i (Just ts) (Just e) -> do
     t <- checkType ts
     te <- checkExprM e
     let inferred = typeOf te
     unless (compatible t inferred) $ liftEither $ Left $ TypeMismatch (identPos i) t inferred
-    bindIdent i t
-    return $ TypedValueDecl m i t (Just te)
+    bindIdent i t mut
+    return $ TypedValueDecl mut i t (Just te)
 
-bindIdent :: Ident -> Type -> Check ()
-bindIdent (Ident pos name) typ = do
+checkAssign :: ParsedAssign -> Check TypedAssign
+checkAssign (ParsedAssign (Ident pos name) expr) = do
+  env <- get
+  case lookupName name env of
+    Nothing -> liftEither $ Left $ UndefinedVariable pos name
+    Just (_, Constant) -> liftEither $ Left $ AssignToConstant pos name
+    Just (varT, Mutable) -> do
+      typedExpr <- checkExprM expr
+      unless (compatible varT (typeOf typedExpr)) $ liftEither $ Left $ TypeMismatch pos varT (typeOf typedExpr)
+      return $ TypedAssign name typedExpr
+
+bindIdent :: Ident -> Type -> Mutability -> Check ()
+bindIdent (Ident pos name) typ mut = do
   env <- get
   case env of
     scope : _ | Map.member name scope -> liftEither $ Left $ DuplicateDeclaration pos name
-    _ -> modify (bindInCurrentScope name typ)
+    _ -> modify (bindInCurrentScope name (typ, mut))
 
 checkParam :: Param -> Check TypedParam
 checkParam (Param ident typ) = TypedParam ident <$> checkType typ
 
 bindTypedParam :: TypedParam -> Check ()
-bindTypedParam (TypedParam ident typ) = bindIdent ident typ
+bindTypedParam (TypedParam ident typ) = bindIdent ident typ Constant
 
 typedParamType :: TypedParam -> Type
 typedParamType (TypedParam _ typ) = typ
@@ -344,7 +359,7 @@ installFunctionItems stmts = do
   checkDuplicateFunctions (fnItemsPos fns) (map (identName . fnItemIdent) fns)
   typedFns <- mapM typeFunctionItem fns
   modify pushScope
-  mapM_ (\(Ident _ name, typ) -> modify (bindInCurrentScope name typ)) typedFns
+  mapM_ (\(Ident _ name, typ) -> modify (bindInCurrentScope name (typ, Constant))) typedFns
 
 data FunctionItem = FunctionItem Ident [Param] TypeSyntax
 
@@ -441,7 +456,7 @@ checkReplInputWithEnv env input = runCheck env $ case input of
         let fns = functionItems [stmt]
         checkDuplicateFunctions (fnItemsPos fns) (map (identName . fnItemIdent) fns)
         typedFns <- mapM typeFunctionItem fns
-        mapM_ (uncurry bindIdent) typedFns
+        mapM_ (\(ident, typ) -> bindIdent ident typ Constant) typedFns
         ReplStmt <$> checkFunctionItemStmt stmt
     | otherwise -> ReplStmt <$> checkStmtM stmt
   ReplExpr expr -> ReplExpr <$> checkExprM expr

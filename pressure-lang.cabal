@@ -113,6 +113,7 @@ test-suite pressure-lang-test
   main-is:          Test.hs
   other-modules:
     Ast.ArithTest
+    Ast.AssignTest
     Ast.ControlTest
     Ast.ErrorTest
     Ast.FunctionTest

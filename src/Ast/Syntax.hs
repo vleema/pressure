@@ -7,6 +7,8 @@ module Ast.Syntax
     ParsedStmt (..),
     ParsedStmtKind (..),
     ParsedDecl (..),
+    ParsedAssign (..),
+    TypedAssign (..),
     ParsedRepl,
     ParsedProgram,
     ParsedTopLevel,
@@ -84,6 +86,7 @@ data ParsedStmt = ParsedStmt
 data ParsedStmtKind
   = ParsedDeclStmt ParsedDecl
   | ParsedExprStmt ParsedExpr
+  | ParsedAssignStmt ParsedAssign
   deriving (Show, Eq)
 
 data TypedStmt = TypedStmt
@@ -95,6 +98,7 @@ data TypedStmt = TypedStmt
 data TypedStmtKind
   = TypedDeclStmt TypedDecl
   | TypedExprStmt TypedExpr
+  | TypedAssignStmt TypedAssign
   deriving (Show, Eq)
 
 data ParsedDecl
@@ -103,6 +107,14 @@ data ParsedDecl
 
 data TypedDecl
   = TypedValueDecl Mutability Ident Type (Maybe TypedExpr)
+  deriving (Show, Eq)
+
+data ParsedAssign
+  = ParsedAssign Ident ParsedExpr
+  deriving (Show, Eq)
+
+data TypedAssign
+  = TypedAssign String TypedExpr
   deriving (Show, Eq)
 
 data Param = Param Ident TypeSyntax

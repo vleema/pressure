@@ -46,6 +46,10 @@ import Ast.Syntax
   '<='          { CmpLeq _ }
   '>='          { CmpGeq _ }
   '->'          { ArrowRight _ }
+  '+='          { AddAssign _ }
+  '-='          { SubAssign _ }
+  '*='          { MulAssign _ }
+  '/='          { DivAssign _ }
   and           { KwAnd _ }
   or            { KwOr _ }
   '!'           { KwNot _ }
@@ -83,14 +87,22 @@ TopLevels : TopLevel TopLevels { $1 : $2 }
 TopLevel : Stmt   { TopLevelStmt $1 }
          | IfExpr { TopLevelStmt (ParsedStmt (exprPos $1) (ParsedExprStmt $1)) }
 
-ReplInput : Stmt      { ReplStmt $1 }
-          | ValueDecl { ReplStmt (ParsedStmt (declPos $1) (ParsedDeclStmt $1)) }
-          | Expr      { ReplExpr $1 }
+ReplInput : Stmt       { ReplStmt $1 }
+          | ValueDecl  { ReplStmt (ParsedStmt (declPos $1) (ParsedDeclStmt $1)) }
+          | AssignStmt { ReplStmt (ParsedStmt (assignPos $1) (ParsedAssignStmt $1)) }
+          | Expr       { ReplExpr $1 }
 
 {- statements -}
 
-Stmt : ValueDecl ';' { ParsedStmt (declPos $1) (ParsedDeclStmt $1) }
-     | Expr ';'      { ParsedStmt (exprPos $1) (ParsedExprStmt $1) }
+Stmt : AssignStmt ';'  { ParsedStmt (assignPos $1) (ParsedAssignStmt $1) }
+     | ValueDecl ';'   { ParsedStmt (declPos $1) (ParsedDeclStmt $1) }
+     | Expr ';'        { ParsedStmt (exprPos $1) (ParsedExprStmt $1) }
+
+AssignStmt : ID '=' Expr  { ParsedAssign (toIdent $1) $3 }
+           | ID '+=' Expr { ParsedAssign (toIdent $1) (ParsedExpr (token_posn $2) (ParsedBinaryExpr AddOp (ParsedExpr (token_posn $1) (ParsedVarExpr (toIdent $1))) $3)) }
+           | ID '-=' Expr { ParsedAssign (toIdent $1) (ParsedExpr (token_posn $2) (ParsedBinaryExpr SubOp (ParsedExpr (token_posn $1) (ParsedVarExpr (toIdent $1))) $3)) }
+           | ID '*=' Expr { ParsedAssign (toIdent $1) (ParsedExpr (token_posn $2) (ParsedBinaryExpr MulOp (ParsedExpr (token_posn $1) (ParsedVarExpr (toIdent $1))) $3)) }
+           | ID '/=' Expr { ParsedAssign (toIdent $1) (ParsedExpr (token_posn $2) (ParsedBinaryExpr DivOp (ParsedExpr (token_posn $1) (ParsedVarExpr (toIdent $1))) $3)) }
 
 ValueDecl : ID ':' Type               { ParsedValueDecl Mutable (toIdent $1) (Just $3) Nothing }
           | ID ':' OptType '=' Expr   { ParsedValueDecl Mutable (toIdent $1) $3 (Just $5) }
@@ -230,6 +242,9 @@ toIntLit _ = error "internal parser error: expected integer literal"
 toFloatLit :: Token -> ParsedExpr
 toFloatLit (FloatLiteral pos value) = ParsedExpr pos (ParsedFloatLit value)
 toFloatLit _ = error "internal parser error: expected float literal"
+
+assignPos :: ParsedAssign -> AlexPosn
+assignPos (ParsedAssign (Ident pos _) _) = pos
 
 declPos :: ParsedDecl -> AlexPosn
 declPos (ParsedValueDecl _ (Ident pos _) _ _) = pos

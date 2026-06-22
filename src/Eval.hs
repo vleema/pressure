@@ -22,6 +22,7 @@ import Ast.Syntax
     Program (..),
     Repl (..),
     Sign (..),
+    TypedAssign (..),
     TypedDecl (..),
     TypedExpr (..),
     TypedExprKind (..),
@@ -90,6 +91,12 @@ bindInCurrentScope :: String -> Value -> Env -> Env
 bindInCurrentScope name val [] = [Map.singleton name val]
 bindInCurrentScope name val (scope : rest) =
   Map.insert name val scope : rest
+
+updateInScope :: String -> Value -> Env -> Env
+updateInScope _ _ [] = []
+updateInScope name val (scope : rest)
+  | Map.member name scope = Map.insert name val scope : rest
+  | otherwise = scope : updateInScope name val rest
 
 globalEnv :: Env -> Env
 globalEnv [] = []
@@ -272,6 +279,10 @@ evalStmt :: TypedStmt -> Eval Value
 evalStmt = \case
   s | isFunctionItemStmt s -> return VUnit
   TypedStmt _ (TypedDeclStmt (TypedValueDecl _ (Ident pos name) typ mExpr)) -> evalDeclExpr pos name typ mExpr
+  TypedStmt _ (TypedAssignStmt (TypedAssign name expr)) -> do
+    val <- evalExpr expr
+    modify (updateInScope name val)
+    return VUnit
   TypedStmt _ (TypedExprStmt expr) -> evalExpr expr >> return VUnit
 
 evalDeclExpr :: AlexPosn -> String -> Type -> Maybe TypedExpr -> Eval Value
