@@ -110,9 +110,19 @@ test-suite pressure-lang-test
   type:             exitcode-stdio-1.0
   main-is:          Test.hs
   other-modules:
+    Ast.ArithTest
+    Ast.ControlTest
+    Ast.ErrorTest
+    Ast.FunctionTest
+    Ast.LiteralTest
     AstTest
+    Lexer.LexerTest
     LexerTest
+    Parser.ErrorTest
+    Parser.ProgramTest
+    Parser.ReplTest
     ParserTest
+    TestUtil
     TypeTest
 
   build-depends:
