@@ -56,6 +56,10 @@ tokens :-
   \<\=                               { mkToken CmpLeq }
   \>\=                               { mkToken CmpGeq }
   \-\>                               { mkToken ArrowRight }
+  \+\=                               { mkToken AddAssign }
+  \-\=                               { mkToken SubAssign }
+  \*\=                               { mkToken MulAssign }
+  \/\=                               { mkToken DivAssign }
   and                                { mkToken KwAnd }
   or                                 { mkToken KwOr }
   !                                  { mkToken KwNot }
@@ -121,6 +125,10 @@ data Token
   | CmpLeq AlexPosn
   | CmpGeq AlexPosn
   | ArrowRight AlexPosn
+  | AddAssign AlexPosn
+  | SubAssign AlexPosn
+  | MulAssign AlexPosn
+  | DivAssign AlexPosn
   | KwAnd AlexPosn
   | KwOr AlexPosn
   | KwNot AlexPosn
@@ -184,6 +192,10 @@ token_posn (CmpNeq p)     = p
 token_posn (CmpLeq p)     = p
 token_posn (CmpGeq p)     = p
 token_posn (ArrowRight p) = p
+token_posn (AddAssign p) = p
+token_posn (SubAssign p) = p
+token_posn (MulAssign p) = p
+token_posn (DivAssign p) = p
 token_posn (KwAnd p)      = p
 token_posn (KwOr p)       = p
 token_posn (KwNot p)    = p

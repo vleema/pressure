@@ -18,6 +18,10 @@ type ReplState = (Env, Type.TypeEnv)
 
 type REPL a = StateT ReplState (ExceptT Error IO) a
 
+handleError :: Error -> REPL ()
+handleError Exit = lift $ throwError Exit
+handleError err = liftIO $ putStrLn $ render err
+
 repl :: IO ()
 repl = do
   _ <- runExceptT $ evalStateT replLoop ([], [])
@@ -25,27 +29,22 @@ repl = do
 
 replLoop :: REPL ()
 replLoop = forever $ replStep `catchError` handleError
-  where
-    handleError Exit = lift $ throwError Exit
-    handleError err = liftIO $ putStrLn $ render err
 
 run :: String -> IO ()
 run input = do
-  _ <- runExceptT $ evalStateT (eval input) ([], [])
+  _ <- runExceptT $ evalStateT (run' `catchError` handleError) ([], [])
   return ()
+  where
+    run' = eval input >> return ()
 
 replStep :: REPL ()
 replStep = do
   liftIO $ putStr ">> " >> hFlush stdout
-
   done <- liftIO isEOF
   when done $ lift $ throwError Exit
-
   line <- liftIO getLine
   when (trim line == ":q") $ lift $ throwError Exit
-
   (val, ast) <- eval line
-
   liftIO $ case ast of
     ReplExpr _ -> print val
     ReplStmt _ -> return ()
