@@ -27,7 +27,8 @@ version:         0.1.0.0
 synopsis:        Imperative programming language for system's programming
 
 -- A longer description of the package.
--- description:
+description:
+  Simple imperative programming language for system's programming. The objective is building a language
 
 -- The license under which the package is released.
 license:         BSD-3-Clause
@@ -67,10 +68,10 @@ library
     Parser
 
   build-depends:
-    , array
+    , array       >=0.5.8     && <0.6
     , base        ^>=4.20.2.0
-    , containers
-    , mtl
+    , containers  >=0.7       && <0.8
+    , mtl         >=2.3.1     && <2.4
 
   build-tool-depends:
     , alex:alex
@@ -94,9 +95,10 @@ executable pressure-lang
 
   -- Other library packages from which modules are imported.
   build-depends:
-    , base           ^>=4.20.2.0
-    , containers
-    , mtl
+    , array        >=0.5.8     && <0.6
+    , base         ^>=4.20.2.0
+    , containers   >=0.7       && <0.8
+    , mtl          >=2.3.1     && <2.4
     , pressure-lang
 
   -- Directories containing source files.
@@ -127,8 +129,8 @@ test-suite pressure-lang-test
 
   build-depends:
     , base           ^>=4.20.2.0
-    , containers
-    , mtl
+    , containers     >=0.7       && <0.8
+    , mtl            >=2.3.1     && <2.4
     , pressure-lang
 
   hs-source-dirs:   test
