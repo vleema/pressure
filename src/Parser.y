@@ -83,6 +83,7 @@ TopLevel : Stmt   { TopLevelStmt $1 }
          | IfExpr { TopLevelStmt (Stmt (exprPos $1) (ExprStmt $1)) }
 
 ReplInput : Stmt      { ReplStmt $1 }
+          | ValueDecl { ReplStmt (Stmt (declPos $1) (DeclStmt $1)) }
           | Expr      { ReplExpr $1 }
 
 {- statements -}

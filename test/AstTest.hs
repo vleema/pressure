@@ -4,10 +4,20 @@ import Ast hiding (Error)
 import Control.Monad.Except (runExcept)
 import Control.Monad.State (runStateT)
 import Data.Map.Strict qualified as Map
-import Eval (Env, Error (..), evalExpr, evalProgram)
+import Eval (Env, Error (..), evalExpr, evalProgram, evalReplInput)
 import Lexer (runAlex)
 import Lexer qualified
-import Parser (parseProgram)
+import Parser (parseProgram, parseRepl)
+
+emptyEnv :: Env
+emptyEnv = []
+
+lookupValue :: String -> Env -> Maybe Value
+lookupValue _ [] = Nothing
+lookupValue name (scope : rest) =
+  case Map.lookup name scope of
+    Just v -> Just v
+    Nothing -> lookupValue name rest
 
 assertRight :: String -> Either String a -> IO a
 assertRight name (Left err) = error $ name ++ " failed with: " ++ err
@@ -64,6 +74,16 @@ testAst = do
   testFunctionEval
   testClosureCapturesByValue
   testFunctionLocalScope
+  testDirectRecursion
+  testTopLevelMutualRecursion
+  testLocalMutualRecursionRejected
+  testForwardFunctionReference
+  testFunctionUsesGlobal
+  testReplRecursiveFunction
+  testDuplicateParamsRejected
+  testDuplicateFunctionsRejected
+  testDuplicateDeclarationsRejected
+  testNestedFunctionCaptureRejected
 
 withTokens :: String -> String -> (ParsedProgram -> IO ()) -> IO ()
 withTokens name source f = do
@@ -88,7 +108,7 @@ evalParsed :: String -> ParsedProgram -> IO (Either Error (Value, Env))
 evalParsed name ast =
   case checkProgramTyped ast of
     Left err -> error $ name ++ " type check failed: " ++ show err
-    Right typedAst -> return $ runExcept (runStateT (evalProgram typedAst) Map.empty)
+    Right typedAst -> return $ runExcept (runStateT (evalProgram typedAst) emptyEnv)
 
 testIntLit :: IO ()
 testIntLit = do
@@ -99,7 +119,7 @@ testIntLit = do
       Left err -> error $ "int literal eval failed: " ++ show err
       Right (val, env) -> do
         if val == VUnit then return () else error $ "expected VUnit got " ++ show val
-        case Map.lookup "x" env of
+        case lookupValue "x" env of
           Just (VInt Signed I32 42) -> return ()
           other -> error $ "expected x = 42, got " ++ show other
 
@@ -111,7 +131,7 @@ testFloatLit = do
     case result of
       Left err -> error $ "float literal eval failed: " ++ show err
       Right (_, env) ->
-        case Map.lookup "x" env of
+        case lookupValue "x" env of
           Just (VFloat F64 3.14) -> return ()
           other -> error $ "expected 3.14, got " ++ show other
 
@@ -123,7 +143,7 @@ testBoolLit = do
     case result of
       Left err -> error $ "bool literal eval failed: " ++ show err
       Right (_, env) ->
-        case Map.lookup "x" env of
+        case lookupValue "x" env of
           Just (VBool True) -> return ()
           other -> error $ "expected true, got " ++ show other
 
@@ -182,7 +202,7 @@ testVarDeclAndLookup = do
 
 testVarUndefined :: IO ()
 testVarUndefined =
-  assertEvalError "undefined variable" (Expr UnitType (VarExpr (identFrom "z"))) Map.empty (RuntimeError "undefined variable: z")
+  assertEvalError "undefined variable" (Expr UnitType (VarExpr (identFrom "z"))) emptyEnv (RuntimeError "undefined variable: z")
 
 testVarDefaultValue :: IO ()
 testVarDefaultValue = do
@@ -190,7 +210,7 @@ testVarDefaultValue = do
     result <- evalParsed "decl without init" ast
     case result of
       Right (_, env) ->
-        case Map.lookup "x" env of
+        case lookupValue "x" env of
           Just (VInt Signed I32 0) -> return ()
           other -> error $ "expected x = 0 for uninitialized int, got " ++ show other
       Left err -> error $ "eval failed: " ++ show err
@@ -212,7 +232,7 @@ testMixedSubEval =
   assertExpr
     "float subtraction eval"
     (Expr UnitType (BinaryExpr SubOp (Expr UnitType (FloatLit 8.5)) (Expr UnitType (FloatLit 3.0))))
-    Map.empty
+    emptyEnv
     (VFloat F64 5.5)
 
 testBoolDefaultValue :: IO ()
@@ -221,7 +241,7 @@ testBoolDefaultValue = do
     result <- evalParsed "bool decl without init" ast
     case result of
       Right (_, env) ->
-        case Map.lookup "x" env of
+        case lookupValue "x" env of
           Just (VBool False) -> return ()
           other -> error $ "expected x = false for uninitialized bool, got " ++ show other
       Left err -> error $ "eval failed: " ++ show err
@@ -238,7 +258,7 @@ testIfExpressionEval = do
     result <- evalParsed "if expression eval" ast
     case result of
       Right (_, env) ->
-        case Map.lookup "x" env of
+        case lookupValue "x" env of
           Just (VInt Signed I32 1) -> return ()
           other -> error $ "expected x = 1, got " ++ show other
       Left err -> error $ "eval failed: " ++ show err
@@ -249,7 +269,7 @@ testIfStatementEval = do
     result <- evalParsed "if statement eval" ast
     case result of
       Right (_, env) ->
-        case Map.lookup "x" env of
+        case lookupValue "x" env of
           Nothing -> return ()
           other -> error $ "expected x to be absent, got " ++ show other
       Left err -> error $ "eval failed: " ++ show err
@@ -260,7 +280,7 @@ testIfElseStatementEval = do
     result <- evalParsed "if else statement eval" ast
     case result of
       Right (_, env) ->
-        case Map.lookup "x" env of
+        case lookupValue "x" env of
           Nothing -> return ()
           other -> error $ "expected x to be absent, got " ++ show other
       Left err -> error $ "eval failed: " ++ show err
@@ -271,7 +291,7 @@ testUnaryNegEval = do
     result <- evalParsed "unary negation eval" ast
     case result of
       Right (_, env) ->
-        case Map.lookup "x" env of
+        case lookupValue "x" env of
           Just (VInt Signed I32 (-42)) -> return ()
           other -> error $ "expected x = -42, got " ++ show other
       Left err -> error $ "eval failed: " ++ show err
@@ -282,7 +302,7 @@ testUnaryNotEval = do
     result <- evalParsed "unary not eval" ast
     case result of
       Right (_, env) ->
-        case Map.lookup "x" env of
+        case lookupValue "x" env of
           Just (VBool True) -> return ()
           other -> error $ "expected x = true, got " ++ show other
       Left err -> error $ "eval failed: " ++ show err
@@ -293,21 +313,15 @@ testFunctionEval = do
     result <- evalParsed "function eval" ast
     case result of
       Right (_, env) ->
-        case Map.lookup "result" env of
+        case lookupValue "result" env of
           Just (VInt Signed I32 3) -> return ()
           other -> error $ "expected result = 3, got " ++ show other
       Left err -> error $ "eval failed: " ++ show err
 
 testClosureCapturesByValue :: IO ()
 testClosureCapturesByValue = do
-  withTokens "closure captures by value" "x :: 10; addX :: fn(y: i32) -> i32 { x + y }; x :: 20; result: i32 = addX(5);" $ \ast -> do
-    result <- evalParsed "closure captures by value" ast
-    case result of
-      Right (_, env) ->
-        case Map.lookup "result" env of
-          Just (VInt Signed I32 15) -> return ()
-          other -> error $ "expected result = 15, got " ++ show other
-      Left err -> error $ "eval failed: " ++ show err
+  -- Function items do not capture variables declared in the same block.
+  checkErr "closure does not capture same-block variable" "x :: 10; addX :: fn(y: i32) -> i32 { x + y }; x :: 20; result: i32 = addX(5);"
 
 testFunctionLocalScope :: IO ()
 testFunctionLocalScope = do
@@ -315,13 +329,95 @@ testFunctionLocalScope = do
     result <- evalParsed "function local scope" ast
     case result of
       Right (_, env) -> do
-        case Map.lookup "result" env of
+        case lookupValue "result" env of
           Just (VInt Signed I32 1) -> return ()
           other -> error $ "expected result = 1, got " ++ show other
-        case Map.lookup "x" env of
+        case lookupValue "x" env of
           Nothing -> return ()
           other -> error $ "expected function local x to be absent, got " ++ show other
       Left err -> error $ "eval failed: " ++ show err
+
+testDirectRecursion :: IO ()
+testDirectRecursion = do
+  withTokens "direct recursion" "fact :: fn(n: i32) -> i32 { if n == 0 { 1 } else { n * fact(n - 1) } }; result: i32 = fact(5);" $ \ast -> do
+    result <- evalParsed "direct recursion" ast
+    case result of
+      Right (_, env) ->
+        case lookupValue "result" env of
+          Just (VInt Signed I32 120) -> return ()
+          other -> error $ "expected result = 120, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testTopLevelMutualRecursion :: IO ()
+testTopLevelMutualRecursion = do
+  withTokens "top-level mutual recursion" "even :: fn(n: i32) -> bool { if n == 0 { true } else { odd(n - 1) } }; odd :: fn(n: i32) -> bool { if n == 0 { false } else { even(n - 1) } }; result: bool = even(10);" $ \ast -> do
+    result <- evalParsed "top-level mutual recursion" ast
+    case result of
+      Right (_, env) ->
+        case lookupValue "result" env of
+          Just (VBool True) -> return ()
+          other -> error $ "expected result = true, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testLocalMutualRecursionRejected :: IO ()
+testLocalMutualRecursionRejected = do
+  checkErr "local mutual recursion rejected" "outer :: fn(n: i32) -> bool { even :: fn(x: i32) -> bool { if x == 0 { true } else { odd(x - 1) } }; odd :: fn(x: i32) -> bool { if x == 0 { false } else { even(x - 1) } }; even(n) }; result: bool = outer(9);"
+
+testForwardFunctionReference :: IO ()
+testForwardFunctionReference = do
+  withTokens "forward function reference" "result: i32 = f(); f :: fn() -> i32 { 42 };" $ \ast -> do
+    result <- evalParsed "forward function reference" ast
+    case result of
+      Right (_, env) ->
+        case lookupValue "result" env of
+          Just (VInt Signed I32 42) -> return ()
+          other -> error $ "expected result = 42, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testFunctionUsesGlobal :: IO ()
+testFunctionUsesGlobal = do
+  withTokens "function uses global" "x :: 10; f :: fn() -> i32 { x }; result: i32 = f();" $ \ast -> do
+    result <- evalParsed "function uses global" ast
+    case result of
+      Right (_, env) ->
+        case lookupValue "result" env of
+          Just (VInt Signed I32 10) -> return ()
+          other -> error $ "expected result = 10, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testReplRecursiveFunction :: IO ()
+testReplRecursiveFunction = do
+  decl <- assertRight "parse repl recursive function" $ runAlex "succ :: fn(n:int) -> int {if n == 0 { 1 } else { 1 + succ(n-1) }}" parseRepl
+  expr <- assertRight "parse repl recursive call" $ runAlex "succ(3)" parseRepl
+  case checkReplInputWithEnv [] decl of
+    Left err -> error $ "repl recursive function type check failed: " ++ show err
+    Right (typedDecl, typeEnv) ->
+      case runExcept (runStateT (evalReplInput typedDecl) emptyEnv) of
+        Left err -> error $ "repl recursive function eval failed: " ++ show err
+        Right (_, env) ->
+          case checkReplInputWithEnv typeEnv expr of
+            Left err -> error $ "repl recursive call type check failed: " ++ show err
+            Right (typedExpr, _) ->
+              case runExcept (runStateT (evalReplInput typedExpr) env) of
+                Right (VInt Signed I32 4, _) -> return ()
+                Right (val, _) -> error $ "expected succ(3) = 4, got " ++ show val
+                Left err -> error $ "repl recursive call eval failed: " ++ show err
+
+testDuplicateParamsRejected :: IO ()
+testDuplicateParamsRejected = do
+  checkErr "duplicate params" "f :: fn(x: i32, x: i32) -> i32 { x };"
+
+testDuplicateFunctionsRejected :: IO ()
+testDuplicateFunctionsRejected = do
+  checkErr "duplicate functions" "f :: fn() -> i32 { 1 }; f :: fn() -> i32 { 2 };"
+
+testDuplicateDeclarationsRejected :: IO ()
+testDuplicateDeclarationsRejected = do
+  checkErr "duplicate declarations" "x :: 1; x :: 2;"
+
+testNestedFunctionCaptureRejected :: IO ()
+testNestedFunctionCaptureRejected = do
+  checkErr "nested function capture rejected" "outer :: fn(x: i32) -> i32 { helper :: fn(n: i32) -> i32 { if n == 0 { x } else { helper(n - 1) } }; helper(3) }; result: i32 = outer(7);"
 
 pos0 :: Lexer.AlexPosn
 pos0 = Lexer.AlexPn 0 1 1

@@ -1,11 +1,16 @@
 module TypeTest (testType) where
 
 import Ast
-import Data.Map.Strict qualified as Map
-import Lexer (AlexPosn (..))
+import Lexer (AlexPosn (..), runAlex)
+import Parser (parseProgram)
 
 checkExprType :: Expr AlexPosn -> Either Error Type
 checkExprType = fmap exprAnnot . checkExpr
+
+checkSource :: String -> Either Error ()
+checkSource source = case runAlex source parseProgram of
+  Left err -> error $ "parse failed: " ++ err
+  Right ast -> checkProgram ast
 
 testType :: IO ()
 testType = do
@@ -23,15 +28,23 @@ testType = do
   assertLeft "unary ampersand unsupported" $ checkExprType (Expr pos0 (UnaryExpr AmpersandOp (Expr pos0 (IntLit 1))))
   assertLeft "ordered bool comparison unsupported" $ checkExprType (Expr pos0 (BinaryExpr LtOp (Expr pos0 (BoolLit True)) (Expr pos0 (BoolLit False))))
   assertEqual "if expression type" (Right (IntType pos0 Signed I32)) $ checkExprType (Expr pos0 (IfExpr (Expr pos0 (BoolLit True)) (Block [] (Just (Expr pos0 (IntLit 1)))) (Just (Block [] (Just (Expr pos0 (IntLit 2)))))))
-  assertEqual "function expression type" (Right (FnType [intType] intType)) $ checkExprType fnIdExpr
+  assertEqual "function expression type" (Right (FnType pos0 [intType] intType)) $ checkExprType fnIdExpr
   assertLeft "calling non-function unsupported" $ checkExprType (Expr pos0 (CallExpr (Expr pos0 (IntLit 1)) []))
   assertLeft "function call arity mismatch" $ checkExprType (Expr pos0 (CallExpr fnIdExpr []))
   assertLeft "function return type mismatch" $ checkExprType (Expr pos0 (FnExpr [Param (identFrom "x") intType] (BoolType pos0) (Block [] (Just (Expr pos0 (VarExpr (identFrom "x")))))))
+  assertLeft "duplicate parameter names rejected" $ checkExprType (Expr pos0 (FnExpr [Param (identFrom "x") intType, Param (identFrom "x") intType] intType (Block [] (Just (Expr pos0 (VarExpr (identFrom "x")))))))
+  assertLeft "top-level duplicate function items rejected" $ checkSource "f :: fn(x: i32) -> i32 { x }; f :: fn(x: i32) -> i32 { x };"
+  assertLeft "duplicate declarations rejected" $ checkSource "x :: 1; x :: 2;"
+  assertOk "direct recursion type checks" $ checkSource "fact :: fn(n: i32) -> i32 { if n == 0 { 1 } else { n * fact(n - 1) } };"
+  assertOk "mutual recursion type checks" $ checkSource "even :: fn(n: i32) -> bool { if n == 0 { true } else { odd(n - 1) } }; odd :: fn(n: i32) -> bool { if n == 0 { false } else { even(n - 1) } };"
+  assertOk "forward function reference type checks" $ checkSource "result: i32 = f(); f :: fn() -> i32 { 1 };"
+  assertOk "function uses preceding global" $ checkSource "x :: 10; f :: fn() -> i32 { x }; result: i32 = f();"
+  assertLeft "function does not capture local" $ checkSource "outer :: fn(x: i32) -> i32 { helper :: fn() -> i32 { x }; helper() };"
   assertLeft "if without else cannot produce int" $ checkProgram (Program [TopLevelStmt (Stmt pos0 (DeclStmt (ValueDecl Mutable (identFrom "x") (Just (IntType pos0 Signed I32)) (Just (Expr pos0 (IfExpr (Expr pos0 (BoolLit True)) (Block [] (Just (Expr pos0 (IntLit 1)))) Nothing))))))])
   assertLeft "missing annotation" $ checkProgram (Program [TopLevelStmt (Stmt pos0 (DeclStmt (ValueDecl Mutable (identFrom "x") Nothing Nothing)))])
   assertEqual "repl expression type checks" (Right (ReplExpr (Expr (IntType pos0 Signed I32) (IntLit 1)))) $ checkReplInput (ReplExpr (Expr pos0 (IntLit 1)))
   assertLeft "repl remembers unit variable type" $ do
-    (_, env) <- checkReplInputWithEnv Map.empty replUnitDecl
+    (_, env) <- checkReplInputWithEnv [] replUnitDecl
     checkReplInputWithEnv env replUnitAddition
 
 replUnitDecl :: Repl AlexPosn
@@ -60,6 +73,10 @@ assertEqual name expected actual =
 assertLeft :: String -> Either e a -> IO ()
 assertLeft _ (Left _) = return ()
 assertLeft name (Right _) = error $ name ++ ": expected type error"
+
+assertOk :: Show e => String -> Either e a -> IO ()
+assertOk _ (Right _) = return ()
+assertOk name (Left err) = error $ name ++ ": expected success but got " ++ show err
 
 pos0 :: AlexPosn
 pos0 = AlexPn 0 1 1

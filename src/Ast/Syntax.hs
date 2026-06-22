@@ -28,7 +28,6 @@ module Ast.Syntax
   )
 where
 
-import Data.Map.Strict qualified as Map
 import Lexer (AlexPosn)
 
 newtype Program a = Program [TopLevel a]
@@ -175,7 +174,7 @@ data Value
   | VFloat FloatSize Double
   | VBool Bool
   | VUnit
-  | VFunction [Param] Type (Block Type) (Map.Map String Value)
+  | VFunction [Param] Type (Block Type)
   | VEmpty
   deriving (Eq)
 

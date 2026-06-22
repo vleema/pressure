@@ -7,7 +7,6 @@ import Control.Monad.Except (ExceptT (..), catchError, liftEither, runExcept, ru
 import Control.Monad.State (StateT, evalStateT, get, lift, liftIO, put, runStateT)
 import Data.Bifunctor (Bifunctor (first))
 import Data.Char (isSpace)
-import Data.Map.Strict qualified as Map
 import Eval (Env, Eval, evalReplInput)
 import Eval qualified
 import Parser (genAst, parseRepl)
@@ -21,7 +20,7 @@ type REPL a = StateT ReplState (ExceptT Error IO) a
 
 repl :: IO ()
 repl = do
-  _ <- runExceptT $ evalStateT replLoop (Map.empty, Map.empty)
+  _ <- runExceptT $ evalStateT replLoop ([], [])
   putStrLn "Goodbye!"
 
 replLoop :: REPL ()
@@ -32,7 +31,7 @@ replLoop = forever $ replStep `catchError` handleError
 
 run :: String -> IO ()
 run input = do
-  _ <- runExceptT $ evalStateT (eval input) (Map.empty, Map.empty)
+  _ <- runExceptT $ evalStateT (eval input) ([], [])
   return ()
 
 replStep :: REPL ()
