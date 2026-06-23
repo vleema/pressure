@@ -4,9 +4,9 @@ module Ast.AssignTest
 where
 
 import Ast hiding (Error)
-import TestUtil
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase)
+import TestUtil
 
 assignTests :: TestTree
 assignTests =

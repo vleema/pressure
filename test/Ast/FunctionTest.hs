@@ -4,9 +4,10 @@ module Ast.FunctionTest
 where
 
 import Ast hiding (Error)
+import Ast.Typecheck (checkReplWithEnv)
 import Control.Monad.Except (runExcept)
 import Control.Monad.State (runStateT)
-import Eval (evalReplInput)
+import Eval (evalRepl, evalReplInput)
 import Lexer (runAlex)
 import Parser (parseRepl)
 import TestUtil
@@ -122,19 +123,20 @@ testReplRecursiveFunction :: IO ()
 testReplRecursiveFunction = do
   decl <- assertRight "parse repl recursive function" $ runAlex "succ :: fn(n:int) -> int {if n == 0 { 1 } else { 1 + succ(n-1) }}" parseRepl
   expr <- assertRight "parse repl recursive call" $ runAlex "succ(3)" parseRepl
-  case checkReplInputWithEnv [] decl of
+  case checkReplWithEnv [] decl of
     Left err -> error $ "repl recursive function type check failed: " ++ show err
     Right (typedDecl, typeEnv) ->
-      case runExcept (runStateT (evalReplInput typedDecl) emptyEnv) of
+      case runExcept (runStateT (evalRepl typedDecl) emptyEnv) of
         Left err -> error $ "repl recursive function eval failed: " ++ show err
         Right (_, env) ->
-          case checkReplInputWithEnv typeEnv expr of
+          case checkReplWithEnv typeEnv expr of
             Left err -> error $ "repl recursive call type check failed: " ++ show err
-            Right (typedExpr, _) ->
+            Right (Repl [typedExpr], _) ->
               case runExcept (runStateT (evalReplInput typedExpr) env) of
                 Right (VInt Signed I32 4, _) -> return ()
                 Right (val, _) -> error $ "expected succ(3) = 4, got " ++ show val
                 Left err -> error $ "repl recursive call eval failed: " ++ show err
+            Right (Repl other, _) -> error $ "expected single expression, got " ++ show (length other) ++ " inputs"
 
 testNestedFunctionCaptureRejected :: IO ()
 testNestedFunctionCaptureRejected = do

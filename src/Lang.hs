@@ -1,13 +1,14 @@
 module Lang (repl, run) where
 
-import Ast (ParsedRepl, Repl (..), Value)
+import Ast (ParsedRepl, Value)
+import Ast.Syntax (Value (..))
 import Ast.Typecheck qualified as Type
-import Control.Monad (forever, when)
+import Control.Monad (forever, void, when)
 import Control.Monad.Except (ExceptT (..), catchError, liftEither, runExcept, runExceptT, throwError)
 import Control.Monad.State (StateT, evalStateT, get, lift, liftIO, put, runStateT)
 import Data.Bifunctor (Bifunctor (first))
 import Data.Char (isSpace)
-import Eval (Env, Eval, evalReplInput)
+import Eval (Env, Eval)
 import Eval qualified
 import Lexer (AlexPosn (..), prettyPosn)
 import Parser (genAst, parseErrorInfo, parseRepl)
@@ -37,10 +38,10 @@ replStep = do
   line <- liftIO getLine
   when (trim line == ":q") $ lift $ throwError Exit
   ( do
-      (val, ast) <- eval line
-      liftIO $ case ast of
-        ReplExpr _ -> print val
-        ReplStmt _ -> return ()
+      (val, _) <- eval line
+      liftIO $ case val of
+        VUnit -> return ()
+        _ -> print val
     )
     `catchError` \err -> case err of
       Exit -> lift $ throwError Exit
@@ -51,7 +52,7 @@ run input = do
   _ <- runExceptT $ evalStateT (run' `catchError` \err -> handleError input err) ([], [])
   return ()
   where
-    run' = eval input >> return ()
+    run' = void $ eval input
 
 handleError :: String -> Error -> REPL ()
 handleError source err = liftIO $ putStrLn $ render source err
@@ -60,8 +61,8 @@ eval :: String -> REPL (Value, ParsedRepl)
 eval input = do
   ast <- liftEither $ first ParseError $ genAst input parseRepl
   (_, typeEnv) <- get
-  (typedAst, nextTypeEnv) <- liftEither $ first TypeError $ Type.checkReplInputWithEnv typeEnv ast
-  val <- liftEval nextTypeEnv $ evalReplInput typedAst
+  (typedAst, nextTypeEnv) <- liftEither $ first TypeError $ Type.checkReplWithEnv typeEnv ast
+  val <- liftEval nextTypeEnv $ Eval.evalRepl typedAst
   return (val, ast)
 
 data Error

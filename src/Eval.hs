@@ -6,6 +6,7 @@ module Eval
     evalExpr,
     evalStmt,
     evalBlock,
+    evalRepl,
     evalReplInput,
     evalProgram,
     errorInfo,
@@ -21,21 +22,23 @@ import Ast.Syntax
     Mutability (..),
     Program (..),
     Repl (..),
+    ReplInput (ReplExpr, ReplStmt),
     Sign (..),
+    TopLevel (..),
+    Type (..),
     TypedAssign (..),
     TypedDecl (..),
     TypedExpr (..),
     TypedExprKind (..),
     TypedParam (..),
+    TypedReplInput,
     TypedStmt (..),
     TypedStmtKind (..),
-    TopLevel (..),
-    Type (..),
     UnaryOp (..),
     Value (..),
   )
 import Ast.Typecheck (TypedBlock, TypedProgram, TypedRepl)
-import Control.Monad.Except (Except, MonadError (throwError))
+import Control.Monad.Except (Except, MonadError (catchError, throwError))
 import Control.Monad.State (StateT, get, modify, put)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
@@ -146,12 +149,16 @@ evalExpr (TypedExpr pos _ kind) = case kind of
   TypedIntLit i -> return (VInt Signed I32 i)
   TypedFloatLit f -> return (VFloat F64 f)
   TypedBoolLit b -> return (VBool b)
+  TypedUnitLit -> return VUnit
   TypedUnaryExpr op e -> evalUnaryExpr pos op e
   TypedBinaryExpr op l r -> evalBinaryExpr pos op l r
   TypedVarExpr (Ident identPos name) -> evalVarExpr identPos name
   TypedIfExpr c t elseBlock -> evalIfExpr pos c t elseBlock
+  TypedWhileExpr c body mElse -> evalWhileExpr pos c body mElse
   TypedFnExpr params ret body -> evalFnExpr params ret body
   TypedCallExpr callee args -> evalCallExpr pos callee args
+  TypedBreakExpr mExpr -> evalBreakExpr pos mExpr
+  TypedContinueExpr -> evalContinueExpr pos
 
 evalIfExpr :: AlexPosn -> TypedExpr -> TypedBlock -> Maybe TypedBlock -> Eval Value
 evalIfExpr pos c t mElse = do
@@ -160,6 +167,35 @@ evalIfExpr pos c t mElse = do
     VBool True -> withScope (evalBlock t)
     VBool False -> maybe (return VUnit) (withScope . evalBlock) mElse
     _ -> panicAt pos "if condition must be bool reached evaluator"
+
+evalWhileExpr :: AlexPosn -> TypedExpr -> TypedBlock -> Maybe TypedBlock -> Eval Value
+evalWhileExpr pos cond body mElse = loop
+  where
+    loop = do
+      v <- evalExpr cond
+      case v of
+        VBool True -> do
+          result <- tryLoopIteration (withScope (evalBlock body))
+          maybe loop return result
+        VBool False ->
+          maybe (return VUnit) (withScope . evalBlock) mElse
+        _ -> panicAt pos "while condition must be bool reached evaluator"
+
+tryLoopIteration :: Eval Value -> Eval (Maybe Value)
+tryLoopIteration action =
+  catchError
+    (action >> return Nothing)
+    ( \case
+        BreakSignal val -> return (Just val)
+        ContinueSignal -> return Nothing
+        other -> throwError other
+    )
+
+evalBreakExpr :: AlexPosn -> TypedExpr -> Eval Value
+evalBreakExpr _ e = evalExpr e >>= \val -> throwError (BreakSignal val)
+
+evalContinueExpr :: AlexPosn -> Eval Value
+evalContinueExpr _ = throwError ContinueSignal
 
 evalVarExpr :: AlexPosn -> String -> Eval Value
 evalVarExpr pos name = do
@@ -234,7 +270,7 @@ evalBinaryExpr pos op l r = do
     GeqOp -> evalNumericCmp pos (>=) (>=) vl vr
 
 evalNumericBin :: AlexPosn -> (Integer -> Integer -> Integer) -> (Double -> Double -> Double) -> Value -> Value -> Eval Value
-evalNumericBin pos intOp floatOp va vb = withNumbers pos go va vb
+evalNumericBin pos intOp floatOp = withNumbers pos go
   where
     go (RuntimeInt s k a) (RuntimeInt _ _ b) = return (VInt s k (intOp a b))
     go (RuntimeFloat k a) (RuntimeFloat _ b) = return (VFloat k (floatOp a b))
@@ -247,7 +283,7 @@ evalDiv pos va vb = case vb of
   _ -> evalNumericBin pos div (/) va vb
 
 evalNumericCmp :: AlexPosn -> (Integer -> Integer -> Bool) -> (Double -> Double -> Bool) -> Value -> Value -> Eval Value
-evalNumericCmp pos intCmp floatCmp va vb = withNumbers pos go va vb
+evalNumericCmp pos intCmp floatCmp = withNumbers pos go
   where
     go (RuntimeInt _ _ a) (RuntimeInt _ _ b) = return (VBool (intCmp a b))
     go (RuntimeFloat _ a) (RuntimeFloat _ b) = return (VBool (floatCmp a b))
@@ -315,6 +351,12 @@ functionItem = \case
   TypedStmt _ (TypedDeclStmt (TypedValueDecl Constant (Ident _ name) _ (Just (TypedExpr _ _ (TypedFnExpr params ret body))))) -> Just (name, params, ret, body)
   _ -> Nothing
 
+-- TODO: Grrrr, remove this duplication
+functionStmt :: TypedStmt -> Maybe TypedStmt
+functionStmt s = case s of
+  TypedStmt _ (TypedDeclStmt (TypedValueDecl Constant (Ident _ _) _ (Just (TypedExpr _ _ (TypedFnExpr _ _ _))))) -> Just s
+  _ -> Nothing
+
 -- Blocks
 
 evalBlock :: TypedBlock -> Eval Value
@@ -337,7 +379,17 @@ evalProgram (Program toplevels) = do
 
 -- REPL
 
-evalReplInput :: TypedRepl -> Eval Value
+evalRepl :: TypedRepl -> Eval Value
+evalRepl (Repl inputs) = do
+  modify pushScope
+  installFunctionItems $ mapMaybe isStmtAndFunctionItem inputs
+  mapM_ evalReplInput inputs
+  return VUnit
+  where
+    isStmtAndFunctionItem (ReplStmt s) = functionStmt s
+    isStmtAndFunctionItem _ = Nothing
+
+evalReplInput :: TypedReplInput -> Eval Value
 evalReplInput = \case
   ReplExpr e -> evalExpr e
   ReplStmt s | isFunctionItemStmt s -> installFunctionItems [s] >> return VUnit

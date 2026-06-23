@@ -13,21 +13,22 @@ module Ast.Typecheck
     checkBlock,
     checkProgram,
     checkProgramTyped,
-    checkReplInput,
-    checkReplInputWithEnv,
+    checkRepl,
+    checkReplWithEnv,
     errorPos,
     errorInfo,
   )
 where
 
 import Ast.Syntax
-import Control.Monad (unless)
+import Control.Monad (foldM, unless, when)
 import Control.Monad.Except (liftEither)
-import Control.Monad.State (StateT (..), get, modify, put, runStateT)
+import Control.Monad.State (StateT (..), get, gets, modify, put, runStateT)
+import Data.Bifunctor (Bifunctor (first, second))
 import Data.Functor (void)
 import Data.Map.Strict (Map)
 import Data.Map.Strict qualified as Map
-import Data.Maybe (mapMaybe)
+import Data.Maybe (isJust, mapMaybe)
 import Lexer (AlexPosn (..))
 
 data Error
@@ -43,6 +44,10 @@ data Error
   | NotCallable AlexPosn Type
   | ArityMismatch AlexPosn Int Int
   | AssignToConstant AlexPosn String
+  | MissingLoopElse AlexPosn
+  | BreakOutsideLoop AlexPosn
+  | ContinueOutsideLoop AlexPosn
+  | NonUnitLoopBody AlexPosn Type
   deriving (Show, Eq)
 
 errorPos :: Error -> AlexPosn
@@ -59,6 +64,10 @@ errorPos = \case
   NotCallable pos _ -> pos
   ArityMismatch pos _ _ -> pos
   AssignToConstant pos _ -> pos
+  MissingLoopElse pos -> pos
+  BreakOutsideLoop pos -> pos
+  ContinueOutsideLoop pos -> pos
+  NonUnitLoopBody pos _ -> pos
 
 errorInfo :: Error -> (AlexPosn, String)
 errorInfo err =
@@ -76,17 +85,28 @@ errorInfo err =
       NotCallable _ t -> "cannot call value of type '" ++ prettyType t ++ "'"
       ArityMismatch _ expected actual -> "wrong number of arguments: expected " ++ show expected ++ ", got " ++ show actual
       AssignToConstant _ name -> "cannot assign to constant '" ++ name ++ "'"
+      MissingLoopElse _ -> "loop with break value must have else clause"
+      BreakOutsideLoop _ -> "'break' outside of loop"
+      ContinueOutsideLoop _ -> "'continue' outside of loop"
+      NonUnitLoopBody _ t -> "loop body must have type '()', found '" ++ prettyType t ++ "'"
   )
 
 type TypeEnv = [Map String (Type, Mutability)]
 
-type Check a = StateT TypeEnv (Either Error) a
+type LoopStack = [[Type]]
+
+type CheckState = (TypeEnv, LoopStack)
+
+type Check a = StateT CheckState (Either Error) a
 
 typeOf :: TypedExpr -> Type
 typeOf = typedExprType
 
 runCheck :: TypeEnv -> Check a -> Either Error (a, TypeEnv)
-runCheck = flip runStateT
+runCheck env action =
+  case runStateT action (env, []) of
+    Left err -> Left err
+    Right (result, (finalEnv, _)) -> Right (result, finalEnv)
 
 checkType :: TypeSyntax -> Check Type
 checkType (TypeSyntax pos k) = case k of
@@ -99,8 +119,14 @@ checkType (TypeSyntax pos k) = case k of
 
 -- Environment helpers
 
-emptyEnv :: TypeEnv
-emptyEnv = []
+getEnv :: Check TypeEnv
+getEnv = gets fst
+
+putEnv :: TypeEnv -> Check ()
+putEnv env = modify (\(_, ls) -> (env, ls))
+
+modifyEnv :: (TypeEnv -> TypeEnv) -> Check ()
+modifyEnv f = modify (first f)
 
 lookupName :: String -> TypeEnv -> Maybe (Type, Mutability)
 lookupName _ [] = Nothing
@@ -128,31 +154,59 @@ popScope (_ : rest) = rest
 
 withScope :: Check a -> Check a
 withScope action = do
-  modify pushScope
+  modifyEnv pushScope
   result <- action
-  modify popScope
+  modifyEnv popScope
   return result
+
+-- Loop context helpers
+
+pushLoop :: Check ()
+pushLoop = modify $ second ([] :)
+
+popLoop :: Check [Type]
+popLoop = do
+  (env, ls) <- get
+  case ls of
+    (breaks : rest) -> do
+      put (env, rest)
+      return breaks
+    [] -> error "internal: popLoop with empty loop stack"
+
+recordBreak :: Maybe Type -> Check ()
+recordBreak Nothing = return ()
+recordBreak (Just t) =
+  modify
+    ( \(env, ls) ->
+        case ls of
+          (breaks : rest) -> (env, (t : breaks) : rest)
+          [] -> (env, ls)
+    )
 
 -- Expressions
 
 checkExpr :: ParsedExpr -> Either Error TypedExpr
-checkExpr expr = fst <$> runCheck emptyEnv (checkExprM expr)
+checkExpr expr = fst <$> runCheck [] (checkExprM expr)
 
 checkExprM :: ParsedExpr -> Check TypedExpr
 checkExprM (ParsedExpr pos k) = case k of
   ParsedIntLit i -> return $ TypedExpr pos (IntT Signed I32) (TypedIntLit i)
   ParsedFloatLit f -> return $ TypedExpr pos (FloatT F64) (TypedFloatLit f)
   ParsedBoolLit b -> return $ TypedExpr pos BoolT (TypedBoolLit b)
+  ParsedUnitLit -> return $ TypedExpr pos UnitT TypedUnitLit
   ParsedUnaryExpr op e -> checkUnaryExpr pos op e
   ParsedBinaryExpr op l r -> checkBinaryExpr pos op l r
   ParsedVarExpr i@(Ident _ name) -> do
-    env <- get
+    env <- getEnv
     case lookupName name env of
       Just (typ, _) -> return $ TypedExpr pos typ (TypedVarExpr i)
       Nothing -> liftEither $ Left $ UndefinedVariable pos name
   ParsedIfExpr c t e -> checkIfExpr pos c t e
+  ParsedWhileExpr c b mElse -> checkWhileExpr pos c b mElse
   ParsedFnExpr params ret body -> checkFnExpr pos params ret body
   ParsedCallExpr callee args -> checkCallExpr pos callee args
+  ParsedBreakExpr mExpr -> checkBreakExpr pos mExpr
+  ParsedContinueExpr -> checkContinueExpr pos
 
 checkIfExpr :: AlexPosn -> ParsedExpr -> ParsedBlock -> Maybe ParsedBlock -> Check TypedExpr
 checkIfExpr pos c t mElse = do
@@ -166,6 +220,52 @@ checkIfExpr pos c t mElse = do
     mergeTypes p t1 t2
       | compatible t1 t2 = Right t1
       | otherwise = Left $ TypeMismatch p t1 t2
+
+checkWhileExpr :: AlexPosn -> ParsedExpr -> ParsedBlock -> Maybe ParsedBlock -> Check TypedExpr
+checkWhileExpr pos cond body mElse = do
+  tc <- checkExprM cond
+  unless (isBoolLike (typeOf tc)) $
+    liftEither $
+      Left $
+        TypeMismatch pos (typeOf tc) BoolT
+
+  pushLoop
+  tb <- withScope (checkBlockM body)
+
+  unless (blockType tb == UnitT) $
+    liftEither $
+      Left $
+        NonUnitLoopBody pos (blockType tb)
+
+  breakTypes <- popLoop
+  te <- traverse checkBlockM mElse
+  let elseTy = maybe UnitT blockType te
+
+  ty <- case breakTypes of
+    [] -> return elseTy
+    _ -> do
+      unless (isJust mElse) $ liftEither $ Left $ MissingLoopElse pos
+      liftEither $ foldM (unifyTypes pos) elseTy breakTypes
+  return $ TypedExpr pos ty (TypedWhileExpr tc tb te)
+
+unifyTypes :: AlexPosn -> Type -> Type -> Either Error Type
+unifyTypes pos t1 t2
+  | compatible t1 t2 = Right t1
+  | otherwise = Left $ TypeMismatch pos t1 t2
+
+checkBreakExpr :: AlexPosn -> ParsedExpr -> Check TypedExpr
+checkBreakExpr pos mExpr = do
+  (_, ls) <- get
+  when (null ls) $ liftEither $ Left $ BreakOutsideLoop pos
+  te <- checkExprM mExpr
+  recordBreak (Just (typeOf te))
+  return $ TypedExpr pos UnitT (TypedBreakExpr te)
+
+checkContinueExpr :: AlexPosn -> Check TypedExpr
+checkContinueExpr pos = do
+  (_, ls) <- get
+  when (null ls) $ liftEither $ Left $ ContinueOutsideLoop pos
+  return $ TypedExpr pos UnitT TypedContinueExpr
 
 checkUnaryExpr :: AlexPosn -> UnaryOp -> ParsedExpr -> Check TypedExpr
 checkUnaryExpr pos op e = do
@@ -181,11 +281,12 @@ checkFnExpr pos params ret body = do
   checkDuplicateParams params
   typedRet <- checkType ret
   typedParams <- mapM checkParam params
-  env <- get
-  put (pushScope (globalEnv env))
+  outerState <- get
+  let env = fst outerState
+  put (pushScope (globalEnv env), [])
   mapM_ bindTypedParam typedParams
   typedBody <- checkBlockM body
-  put env
+  put outerState
   unless (compatible typedRet (blockType typedBody)) $
     liftEither $
       Left $
@@ -244,7 +345,7 @@ checkBinaryOp pos op t1 t2 = case op of
   GtOp -> ordered
   GeqOp -> ordered
   where
-    numeric = checkOpWith numericCompatible (\t _ -> t) pos op t1 t2
+    numeric = checkOpWith numericCompatible const pos op t1 t2
     boolLike = checkOpWith (\a b -> isBoolLike a && isBoolLike b) (\_ _ -> BoolT) pos op t1 t2
     equality = checkOpWith (\a b -> isBoolLike a && isBoolLike b || numericCompatible a b) (\_ _ -> BoolT) pos op t1 t2
     ordered = checkOpWith numericCompatible (\_ _ -> BoolT) pos op t1 t2
@@ -278,7 +379,7 @@ isBoolLike = \case
 -- Statements
 
 checkStmt :: ParsedStmt -> Either Error TypedStmt
-checkStmt stmt = fst <$> runCheck emptyEnv (checkStmtM stmt)
+checkStmt stmt = fst <$> runCheck [] (checkStmtM stmt)
 
 checkStmtM :: ParsedStmt -> Check TypedStmt
 checkStmtM (ParsedStmt pos k) = case k of
@@ -321,7 +422,7 @@ checkDecl = \case
 
 checkAssign :: ParsedAssign -> Check TypedAssign
 checkAssign (ParsedAssign (Ident pos name) expr) = do
-  env <- get
+  env <- getEnv
   case lookupName name env of
     Nothing -> liftEither $ Left $ UndefinedVariable pos name
     Just (_, Constant) -> liftEither $ Left $ AssignToConstant pos name
@@ -332,10 +433,10 @@ checkAssign (ParsedAssign (Ident pos name) expr) = do
 
 bindIdent :: Ident -> Type -> Mutability -> Check ()
 bindIdent (Ident pos name) typ mut = do
-  env <- get
+  env <- getEnv
   case env of
     scope : _ | Map.member name scope -> liftEither $ Left $ DuplicateDeclaration pos name
-    _ -> modify (bindInCurrentScope name (typ, mut))
+    _ -> modifyEnv (bindInCurrentScope name (typ, mut))
 
 checkParam :: Param -> Check TypedParam
 checkParam (Param ident typ) = TypedParam ident <$> checkType typ
@@ -348,18 +449,18 @@ typedParamType (TypedParam _ typ) = typ
 
 -- Function items
 
-isFunctionItem :: ParsedStmt -> Bool
-isFunctionItem = \case
-  ParsedStmt _ (ParsedDeclStmt (ParsedValueDecl Constant _ _ (Just (ParsedExpr _ (ParsedFnExpr {}))))) -> True
-  _ -> False
+functionItem :: ParsedStmt -> Maybe ParsedStmt
+functionItem i = case i of
+  ParsedStmt _ (ParsedDeclStmt (ParsedValueDecl Constant _ _ (Just (ParsedExpr _ (ParsedFnExpr {}))))) -> Just i
+  _ -> Nothing
 
 installFunctionItems :: [ParsedStmt] -> Check ()
 installFunctionItems stmts = do
   let fns = functionItems stmts
   checkDuplicateFunctions (fnItemsPos fns) (map (identName . fnItemIdent) fns)
   typedFns <- mapM typeFunctionItem fns
-  modify pushScope
-  mapM_ (\(Ident _ name, typ) -> modify (bindInCurrentScope name (typ, Constant))) typedFns
+  modifyEnv pushScope
+  mapM_ (\(Ident _ name, typ) -> modifyEnv (bindInCurrentScope name (typ, Constant))) typedFns
 
 data FunctionItem = FunctionItem Ident [Param] TypeSyntax
 
@@ -384,35 +485,33 @@ fnItemsPos = \case
   (FunctionItem ident _ _ : _) -> identPos ident
 
 checkDuplicateFunctions :: AlexPosn -> [String] -> Check ()
-checkDuplicateFunctions pos names = go names
-  where
-    go [] = return ()
-    go (x : xs)
-      | x `elem` xs = liftEither $ Left (DuplicateFunction pos x)
-      | otherwise = go xs
+checkDuplicateFunctions _ [] = return ()
+checkDuplicateFunctions pos (x : xs)
+  | x `elem` xs = liftEither $ Left (DuplicateFunction pos x)
+  | otherwise = checkDuplicateFunctions pos xs
 
 -- Blocks
 
 checkBlock :: ParsedBlock -> Either Error TypedBlock
-checkBlock block = fst <$> runCheck emptyEnv (checkBlockM block)
+checkBlock block = fst <$> runCheck [] (checkBlockM block)
 
 checkBlockM :: ParsedBlock -> Check TypedBlock
 checkBlockM (Block stmts expr) = do
-  outerEnv <- get
+  outerEnv <- getEnv
   installFunctionItems stmts
-  fnScope <- get
+  fnScope <- getEnv
   typedStmts <- mapM (checkStmtInBlock fnScope) stmts
   typedExpr <- traverse checkExprM expr
-  put outerEnv
+  putEnv outerEnv
   return $ Block typedStmts typedExpr
 
 checkStmtInBlock :: TypeEnv -> ParsedStmt -> Check TypedStmt
 checkStmtInBlock fnScope stmt
-  | isFunctionItem stmt = do
-      saveEnv <- get
-      put fnScope
+  | isJust $ functionItem stmt = do
+      saveEnv <- getEnv
+      putEnv fnScope
       typed <- checkFunctionItemStmt stmt
-      put saveEnv
+      putEnv saveEnv
       return typed
   | otherwise = checkStmtM stmt
 
@@ -429,7 +528,7 @@ checkProgramTyped :: ParsedProgram -> Either Error TypedProgram
 checkProgramTyped (Program toplevels) =
   fst
     <$> runCheck
-      emptyEnv
+      []
       ( do
           let stmts = map topLevelStmt toplevels
           installFunctionItems stmts
@@ -439,24 +538,32 @@ checkProgramTyped (Program toplevels) =
   where
     topLevelStmt (TopLevelStmt stmt) = stmt
 
+-- FIX: Support only value declarations in the top level.
 checkTopLevel :: ParsedTopLevel -> Check TypedTopLevel
 checkTopLevel (TopLevelStmt stmt)
-  | isFunctionItem stmt = TopLevelStmt <$> checkFunctionItemStmt stmt
+  | isJust $ functionItem stmt = TopLevelStmt <$> checkFunctionItemStmt stmt
   | otherwise = TopLevelStmt <$> checkStmtM stmt
 
 -- REPL
 
-checkReplInput :: ParsedRepl -> Either Error TypedRepl
-checkReplInput input = fst <$> checkReplInputWithEnv emptyEnv input
+checkReplWithEnv :: TypeEnv -> ParsedRepl -> Either Error (TypedRepl, TypeEnv)
+checkReplWithEnv env (Repl inputs) =
+  runCheck env $ do
+    installFunctionItems (mapMaybe isStmtAndFunctionItem inputs)
+    typedInputs <- mapM checkReplInput inputs
+    return $ Repl typedInputs
+  where
+    isStmtAndFunctionItem (ReplStmt s) = functionItem s
+    isStmtAndFunctionItem _ = Nothing
 
-checkReplInputWithEnv :: TypeEnv -> ParsedRepl -> Either Error (TypedRepl, TypeEnv)
-checkReplInputWithEnv env input = runCheck env $ case input of
+checkRepl :: ParsedRepl -> Either Error TypedRepl
+checkRepl = fmap fst . checkReplWithEnv []
+
+checkReplInput :: ParsedReplInput -> Check TypedReplInput
+checkReplInput = \case
   ReplStmt stmt
-    | isFunctionItem stmt -> do
-        let fns = functionItems [stmt]
-        checkDuplicateFunctions (fnItemsPos fns) (map (identName . fnItemIdent) fns)
-        typedFns <- mapM typeFunctionItem fns
-        mapM_ (\(ident, typ) -> bindIdent ident typ Constant) typedFns
-        ReplStmt <$> checkFunctionItemStmt stmt
+    | isJust $ functionItem stmt -> ReplStmt <$> checkFunctionItemStmt stmt
     | otherwise -> ReplStmt <$> checkStmtM stmt
   ReplExpr expr -> ReplExpr <$> checkExprM expr
+
+

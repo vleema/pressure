@@ -22,15 +22,15 @@ import Ast hiding (Error)
 import Control.Monad.Except (runExcept)
 import Control.Monad.State (runStateT)
 import Data.Map.Strict qualified as Map
-import Eval (Env, Error (..), RuntimeError (..), evalExpr, evalProgram)
+import Eval (Env, Error (..), RuntimeError (..), evalExpr, evalRepl)
 import Lexer (AlexPosn (..), runAlex)
-import Parser (parseProgram)
+import Parser (parseRepl)
 import Test.Tasty.HUnit qualified as HUnit
 
 assertEqual :: (Show a, Eq a) => String -> a -> a -> IO ()
-assertEqual name expected actual = HUnit.assertEqual name expected actual
+assertEqual = HUnit.assertEqual
 
-assertRight :: Show e => String -> Either e a -> IO a
+assertRight :: (Show e) => String -> Either e a -> IO a
 assertRight name (Left err) = HUnit.assertFailure $ name ++ " failed with: " ++ show err
 assertRight _ (Right x) = return x
 
@@ -38,7 +38,7 @@ assertLeft :: String -> Either e a -> IO ()
 assertLeft _ (Left _) = return ()
 assertLeft name (Right _) = HUnit.assertFailure $ name ++ ": expected error"
 
-assertOk :: Show e => String -> Either e a -> IO ()
+assertOk :: (Show e) => String -> Either e a -> IO ()
 assertOk _ (Right _) = return ()
 assertOk name (Left err) = HUnit.assertFailure $ name ++ ": expected success but got " ++ show err
 
@@ -74,27 +74,27 @@ lookupValue name (scope : rest) =
     Just v -> Just v
     Nothing -> lookupValue name rest
 
-withTokens :: String -> String -> (ParsedProgram -> IO ()) -> IO ()
+withTokens :: String -> String -> (ParsedRepl -> IO ()) -> IO ()
 withTokens name source f = do
-  ast <- assertRight ("parse " ++ name) $ runAlex source parseProgram
+  ast <- assertRight ("parse " ++ name) $ runAlex source parseRepl
   f ast
 
 checkOk :: String -> String -> IO ()
 checkOk name source =
   withTokens name source $ \ast ->
-    case checkProgram ast of
-      Right () -> return ()
+        case checkRepl ast of
+      Right _ -> return ()
       Left err -> error $ name ++ " failed: " ++ show err
 
 checkErr :: String -> String -> IO ()
 checkErr name source =
   withTokens name source $ \ast ->
-    case checkProgram ast of
+    case checkRepl ast of
       Left _ -> return ()
-      Right () -> error $ name ++ ": expected type error but passed"
+      Right _ -> error $ name ++ ": expected type error but passed"
 
-evalParsed :: String -> ParsedProgram -> IO (Either Error (Value, Env))
+evalParsed :: String -> ParsedRepl -> IO (Either Error (Value, Env))
 evalParsed name ast =
-  case checkProgramTyped ast of
+  case checkRepl ast of
     Left err -> error $ name ++ " type check failed: " ++ show err
-    Right typedAst -> return $ runExcept (runStateT (evalProgram typedAst) emptyEnv)
+    Right typedAst -> return $ runExcept (runStateT (evalRepl typedAst) emptyEnv)

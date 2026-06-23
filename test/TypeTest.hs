@@ -1,6 +1,7 @@
 module TypeTest (typeTests) where
 
 import Ast
+import Ast.Typecheck (checkReplWithEnv)
 import Lexer (runAlex)
 import Parser (parseProgram)
 import Test.Tasty (TestTree, testGroup)
@@ -105,24 +106,28 @@ testTopLevelTypes = do
 
 testReplTypes :: IO ()
 testReplTypes = do
-  assertEqual "repl expression type checks" (Right (ReplExpr (TypedExpr pos0 intType (TypedIntLit 1)))) $ checkReplInput (ReplExpr (expr (ParsedIntLit 1)))
+  assertEqual "repl expression type checks" (Right (Repl [ReplExpr (TypedExpr pos0 intType (TypedIntLit 1))])) $ checkRepl (Repl [ReplExpr (expr (ParsedIntLit 1))])
   assertLeft "repl remembers unit variable type" $ do
-    (_, env) <- checkReplInputWithEnv [] replUnitDecl
-    checkReplInputWithEnv env replUnitAddition
+    (_, env) <- checkReplWithEnv [] replUnitDecl
+    checkReplWithEnv env replUnitAddition
 
 replUnitDecl :: ParsedRepl
 replUnitDecl =
-  ReplStmt $
-    ParsedStmt pos0 $
-      ParsedDeclStmt $
-        ParsedValueDecl
-          Mutable
-          (identFrom "x")
-          Nothing
-          (Just (expr (ParsedIfExpr (expr (ParsedBoolLit False)) (Block [] Nothing) Nothing)))
+  Repl
+    [ ReplStmt $
+        ParsedStmt pos0 $
+          ParsedDeclStmt $
+            ParsedValueDecl
+              Mutable
+              (identFrom "x")
+              Nothing
+              (Just (expr (ParsedIfExpr (expr (ParsedBoolLit False)) (Block [] Nothing) Nothing)))
+    ]
 
 replUnitAddition :: ParsedRepl
 replUnitAddition =
-  ReplExpr $
-    expr $
-      ParsedBinaryExpr AddOp (expr (ParsedVarExpr (identFrom "x"))) (expr (ParsedIntLit 5))
+  Repl
+    [ ReplExpr $
+        expr $
+          ParsedBinaryExpr AddOp (expr (ParsedVarExpr (identFrom "x"))) (expr (ParsedIntLit 5))
+    ]

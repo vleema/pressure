@@ -26,7 +26,12 @@ errorTests =
       testCase "rejects duplicate declarations" testDuplicateDeclarationsRejected,
       testCase "rejects undefined types" testUndefinedTypeError,
       testCase "formats type errors" testTypeErrorMessageFormat,
-      testCase "formats runtime errors" testRuntimeErrorMessageFormat
+      testCase "formats runtime errors" testRuntimeErrorMessageFormat,
+      testCase "rejects break outside loop" testBreakOutsideLoop,
+      testCase "rejects continue outside loop" testContinueOutsideLoop,
+      testCase "rejects missing loop else" testMissingLoopElse,
+      testCase "rejects non-unit loop body" testNonUnitLoopBody,
+      testCase "rejects break value type mismatch" testBreakValueMismatch
     ]
 
 testBoolInArithmeticError :: IO ()
@@ -94,3 +99,18 @@ testRuntimeErrorMessageFormat = do
   let (mPos, m) = Eval.errorInfo (RuntimeError (DivisionByZero pos))
   assertEqual "runtime div by zero pos" (Just pos) mPos
   assertEqual "runtime div by zero text" "division by zero" m
+
+testBreakOutsideLoop :: IO ()
+testBreakOutsideLoop = checkErr "break outside loop" "break;"
+
+testContinueOutsideLoop :: IO ()
+testContinueOutsideLoop = checkErr "continue outside loop" "continue;"
+
+testMissingLoopElse :: IO ()
+testMissingLoopElse = checkErr "missing loop else" "x: i32 = while true { break 1; };"
+
+testNonUnitLoopBody :: IO ()
+testNonUnitLoopBody = checkErr "non-unit loop body" "x: i32 = while true { 42 } else { 0 };"
+
+testBreakValueMismatch :: IO ()
+testBreakValueMismatch = checkErr "break value mismatch" "x: i32 = while true { break 1; } else { true };"

@@ -28,7 +28,9 @@ tokens :-
   else                               { mkToken KwElse }
   true                               { mkToken KwTrue }
   false                              { mkToken KwFalse }
+  \(\)                               { mkToken UnitLit }
   for                                { mkToken KwFor }
+  while                              { mkToken KwWhile }
   continue                           { mkToken KwContinue }
   break                              { mkToken KwBreak }
   fn                                 { mkToken KwFn }
@@ -98,7 +100,9 @@ data Token
   | KwElse AlexPosn
   | KwTrue AlexPosn
   | KwFalse AlexPosn
+  | UnitLit AlexPosn
   | KwFor AlexPosn
+  | KwWhile AlexPosn
   | KwContinue AlexPosn
   | KwBreak AlexPosn
   | KwFn AlexPosn
@@ -166,7 +170,9 @@ token_posn (KwIf p)       = p
 token_posn (KwElse p)     = p
 token_posn (KwTrue p)     = p
 token_posn (KwFalse p)    = p
+token_posn (UnitLit p)    = p
 token_posn (KwFor p)      = p
+token_posn (KwWhile p)    = p
 token_posn (KwContinue p) = p
 token_posn (KwBreak p)    = p
 token_posn (KwFn p)       = p
@@ -268,7 +274,9 @@ prettyToken = \case
   KwElse _ -> "keyword 'else'"
   KwTrue _ -> "keyword 'true'"
   KwFalse _ -> "keyword 'false'"
+  UnitLit _ -> "'()'"
   KwFor _ -> "keyword 'for'"
+  KwWhile _ -> "keyword 'while'"
   KwContinue _ -> "keyword 'continue'"
   KwBreak _ -> "keyword 'break'"
   KwFn _ -> "keyword 'fn'"

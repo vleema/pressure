@@ -3,6 +3,7 @@ module Ast
     TopLevel (..),
     Block (..),
     Repl (..),
+    ReplInput (..),
     ParsedExpr (..),
     ParsedExprKind (..),
     ParsedProgram,
@@ -41,8 +42,7 @@ module Ast
     checkBlock,
     checkProgram,
     checkProgramTyped,
-    checkReplInput,
-    checkReplInputWithEnv,
+    checkRepl,
   )
 where
 

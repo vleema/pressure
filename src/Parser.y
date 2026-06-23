@@ -4,7 +4,7 @@ import Lexer
 import Ast.Syntax
 }
 
-%name parseRepl ReplInput
+%name parseRepl Repl
 %name parseProgram Program
 %tokentype { Token }
 %error { parseError }
@@ -14,6 +14,7 @@ import Ast.Syntax
 %token
   if            { KwIf _ }
   else          { KwElse _ }
+  while         { KwWhile _ }
   true          { KwTrue _ }
   false         { KwFalse _ }
   for           { KwFor _ }
@@ -76,6 +77,7 @@ import Ast.Syntax
   ID            { Id _ _ }
   INT_LITERAL   { IntLiteral _ _ }
   FLOAT_LITERAL { FloatLiteral _ _ }
+  UnitLit       { UnitLit _ }
 
 %%
 
@@ -84,11 +86,13 @@ Program : TopLevels { Program $1 }
 TopLevels : TopLevel TopLevels { $1 : $2 }
           |                    { [] }
 
-TopLevel : Stmt   { TopLevelStmt $1 }
-         | IfExpr { TopLevelStmt (ParsedStmt (exprPos $1) (ParsedExprStmt $1)) }
+TopLevel : ValueDecl ';'  { TopLevelStmt (ParsedStmt (declPos $1) (ParsedDeclStmt $1)) }
 
-ReplInput : Stmt       { ReplStmt $1 }
-          | ValueDecl  { ReplStmt (ParsedStmt (declPos $1) (ParsedDeclStmt $1)) }
+Repl : ReplInput ';' Repl { prependInput $1 $3 }
+     | ReplInput          { Repl [$1] }
+     |                    { Repl [] }
+
+ReplInput : ValueDecl  { ReplStmt (ParsedStmt (declPos $1) (ParsedDeclStmt $1)) }
           | AssignStmt { ReplStmt (ParsedStmt (assignPos $1) (ParsedAssignStmt $1)) }
           | Expr       { ReplExpr $1 }
 
@@ -118,14 +122,27 @@ BlockBody : Expr           { Block [] (Just $1) }
           | Stmt BlockBody { prependStmt $1 $2 }
 
 Expr : IfExpr        { $1 }
+     | WhileExpr     { $1 }
+     | BreakExpr     { $1 }
+     | ContinueExpr  { $1 }
      | FnExpr        { $1 }
      | LogicalOrExpr { $1 }
 
 IfExpr : if Expr Block            { ParsedExpr (token_posn $1) (ParsedIfExpr $2 $3 Nothing) }
        | if Expr Block else Block { ParsedExpr (token_posn $1) (ParsedIfExpr $2 $3 (Just $5)) }
 
+WhileExpr : while Expr Block            { ParsedExpr (token_posn $1) (ParsedWhileExpr $2 $3 Nothing) }
+          | while Expr Block else Block { ParsedExpr (token_posn $1) (ParsedWhileExpr $2 $3 (Just $5)) }
+
+BreakExpr : break        { ParsedExpr (token_posn $1) (ParsedBreakExpr (ParsedExpr (token_posn $1) ParsedUnitLit)) }
+          | break Expr   { ParsedExpr (token_posn $1) (ParsedBreakExpr $2) }
+
+ContinueExpr : continue  { ParsedExpr (token_posn $1) ParsedContinueExpr }
+
 FnExpr : fn '(' FnParams ')' '->' Type Block { ParsedExpr (token_posn $1) (ParsedFnExpr $3 $6 $7) }
        | fn '(' FnParams ')' Block { ParsedExpr (token_posn $1) (ParsedFnExpr $3 (TypeSyntax (token_posn $1) UnitSyntax) $5) }
+       | fn UnitLit '->' Type Block { ParsedExpr (token_posn $1) (ParsedFnExpr [] $4 $5) }
+       | fn UnitLit Block { ParsedExpr (token_posn $1) (ParsedFnExpr [] (TypeSyntax (token_posn $1) UnitSyntax) $3) }
 
 FnParams : FnParamList { $1 }
          |             { [] }
@@ -166,6 +183,7 @@ UnaryExpr : '-' UnaryExpr { ParsedExpr (token_posn $1) (ParsedUnaryExpr NegOp $2
 
 CallExpr : AtomExpr              { $1 }
          | CallExpr '(' Args ')' { ParsedExpr (exprPos $1) (ParsedCallExpr $1 $3) }
+         | CallExpr UnitLit      { ParsedExpr (exprPos $1) (ParsedCallExpr $1 []) }
 
 Args : ArgList { $1 }
      |         { [] }
@@ -178,6 +196,7 @@ AtomExpr : INT_LITERAL   { toIntLit $1 }
          | true          { ParsedExpr (token_posn $1) (ParsedBoolLit True) }
          | false         { ParsedExpr (token_posn $1) (ParsedBoolLit False) }
          | '(' Expr ')'  { $2 }
+         | UnitLit       { ParsedExpr (token_posn $1) ParsedUnitLit }
          | ID            { ParsedExpr (token_posn $1) (ParsedVarExpr (toIdent $1)) }
 
 {- types -}
@@ -254,6 +273,9 @@ exprPos (ParsedExpr pos _) = pos
 
 prependStmt :: ParsedStmt -> ParsedBlock -> ParsedBlock
 prependStmt stmt (Block stmts expr) = Block (stmt : stmts) expr
+
+prependInput :: ReplInput ParsedStmt ParsedExpr -> Repl ParsedStmt ParsedExpr -> Repl ParsedStmt ParsedExpr
+prependInput i (Repl is) = Repl (i : is)
 
 genAst = runAlex
 }

@@ -9,6 +9,8 @@ module Ast.Syntax
     ParsedDecl (..),
     ParsedAssign (..),
     TypedAssign (..),
+    ReplInput (..),
+    ParsedReplInput,
     ParsedRepl,
     ParsedProgram,
     ParsedTopLevel,
@@ -19,6 +21,7 @@ module Ast.Syntax
     TypedStmtKind (..),
     TypedDecl (..),
     TypedRepl,
+    TypedReplInput,
     TypedProgram,
     TypedTopLevel,
     TypedBlock,
@@ -50,13 +53,17 @@ import Lexer (AlexPosn (..))
 newtype Program stmt = Program [TopLevel stmt]
   deriving (Show, Eq)
 
+-- TODO: Better define this to only support struct fields.
 newtype TopLevel stmt = TopLevelStmt stmt
   deriving (Show, Eq)
 
 data Block stmt expr = Block [stmt] (Maybe expr)
   deriving (Show, Eq)
 
-data Repl stmt expr
+newtype Repl stmt expr = Repl [ReplInput stmt expr]
+  deriving (Show, Eq)
+
+data ReplInput stmt expr
   = ReplStmt stmt
   | ReplExpr expr
   deriving (Show, Eq)
@@ -67,6 +74,8 @@ type ParsedTopLevel = TopLevel ParsedStmt
 
 type ParsedBlock = Block ParsedStmt ParsedExpr
 
+type ParsedReplInput = ReplInput ParsedStmt ParsedExpr
+
 type ParsedRepl = Repl ParsedStmt ParsedExpr
 
 type TypedProgram = Program TypedStmt
@@ -74,6 +83,8 @@ type TypedProgram = Program TypedStmt
 type TypedTopLevel = TopLevel TypedStmt
 
 type TypedBlock = Block TypedStmt TypedExpr
+
+type TypedReplInput = ReplInput TypedStmt TypedExpr
 
 type TypedRepl = Repl TypedStmt TypedExpr
 
@@ -214,12 +225,16 @@ data ParsedExprKind
   = ParsedIntLit Integer
   | ParsedFloatLit Double
   | ParsedBoolLit Bool
+  | ParsedUnitLit
   | ParsedBinaryExpr BinaryOp ParsedExpr ParsedExpr
   | ParsedUnaryExpr UnaryOp ParsedExpr
   | ParsedVarExpr Ident
   | ParsedIfExpr ParsedExpr ParsedBlock (Maybe ParsedBlock)
+  | ParsedWhileExpr ParsedExpr ParsedBlock (Maybe ParsedBlock)
   | ParsedFnExpr [Param] TypeSyntax ParsedBlock
   | ParsedCallExpr ParsedExpr [ParsedExpr]
+  | ParsedBreakExpr ParsedExpr
+  | ParsedContinueExpr
   deriving (Show, Eq)
 
 data TypedExpr = TypedExpr
@@ -233,12 +248,16 @@ data TypedExprKind
   = TypedIntLit Integer
   | TypedFloatLit Double
   | TypedBoolLit Bool
+  | TypedUnitLit
   | TypedBinaryExpr BinaryOp TypedExpr TypedExpr
   | TypedUnaryExpr UnaryOp TypedExpr
   | TypedVarExpr Ident
   | TypedIfExpr TypedExpr TypedBlock (Maybe TypedBlock)
+  | TypedWhileExpr TypedExpr TypedBlock (Maybe TypedBlock)
   | TypedFnExpr [TypedParam] Type TypedBlock
   | TypedCallExpr TypedExpr [TypedExpr]
+  | TypedBreakExpr TypedExpr
+  | TypedContinueExpr
   deriving (Show, Eq)
 
 data Value
@@ -246,8 +265,8 @@ data Value
   | VFloat FloatSize Double
   | VBool Bool
   | VUnit
-  | VFunction [TypedParam] Type TypedBlock
   | VEmpty
+  | VFunction [TypedParam] Type TypedBlock
   deriving (Eq)
 
 instance Show Value where

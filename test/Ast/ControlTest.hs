@@ -16,7 +16,12 @@ controlTests =
       testCase "evaluates if statements" testIfStatementEval,
       testCase "evaluates if-else statements" testIfElseStatementEval,
       testCase "evaluates unary negation" testUnaryNegEval,
-      testCase "evaluates unary not" testUnaryNotEval
+      testCase "evaluates unary not" testUnaryNotEval,
+      testCase "evaluates while else on false" testWhileElseFalse,
+      testCase "evaluates while else on true with break" testWhileBreakValue,
+      testCase "evaluates while as statement" testWhileStatement,
+      testCase "evaluates while continue" testWhileContinue,
+      testCase "evaluates nested while loops" testNestedWhile
     ]
 
 testIfExpressionEval :: IO ()
@@ -72,4 +77,59 @@ testUnaryNotEval = do
         case lookupValue "x" env of
           Just (VBool True) -> return ()
           other -> error $ "expected x = true, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testWhileElseFalse :: IO ()
+testWhileElseFalse = do
+  withTokens "while else false" "x: i32 = while false {  } else { 42 };" $ \ast -> do
+    result <- evalParsed "while else false" ast
+    case result of
+      Right (_, env) ->
+        case lookupValue "x" env of
+          Just (VInt Signed I32 42) -> return ()
+          other -> error $ "expected x = 42, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testWhileBreakValue :: IO ()
+testWhileBreakValue = do
+  withTokens "while break value" "x: i32 = while true { break 10; } else { 0 };" $ \ast -> do
+    result <- evalParsed "while break value" ast
+    case result of
+      Right (_, env) ->
+        case lookupValue "x" env of
+          Just (VInt Signed I32 10) -> return ()
+          other -> error $ "expected x = 10, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testWhileStatement :: IO ()
+testWhileStatement = do
+  withTokens "while as statement" "x: i32 = while true { break 1; } else { 2 };" $ \ast -> do
+    result <- evalParsed "while as statement" ast
+    case result of
+      Right (_, env) ->
+        case lookupValue "x" env of
+          Just (VInt Signed I32 1) -> return ()
+          other -> error $ "expected x = 1, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testWhileContinue :: IO ()
+testWhileContinue = do
+  withTokens "while continue" "x: i32 = while true { if false { continue; }; break 1; } else { 2 };" $ \ast -> do
+    result <- evalParsed "while continue" ast
+    case result of
+      Right (_, env) ->
+        case lookupValue "x" env of
+          Just (VInt Signed I32 1) -> return ()
+          other -> error $ "expected x = 1, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testNestedWhile :: IO ()
+testNestedWhile = do
+  withTokens "nested while" "x: i32 = while true { inner: i32 = while true { break 1; } else { 0 }; break inner; } else { 0 };" $ \ast -> do
+    result <- evalParsed "nested while" ast
+    case result of
+      Right (_, env) ->
+        case lookupValue "x" env of
+          Just (VInt Signed I32 1) -> return ()
+          other -> error $ "expected x = 1, got " ++ show other
       Left err -> error $ "eval failed: " ++ show err

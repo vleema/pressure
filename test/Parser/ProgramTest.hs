@@ -2,7 +2,7 @@ module Parser.ProgramTest (parserProgramTests) where
 
 import Ast
 import Lexer (runAlex)
-import Parser (parseProgram)
+import Parser (parseRepl)
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase)
 import TestUtil (assertRight)
@@ -10,17 +10,18 @@ import TestUtil (assertRight)
 parserProgramTests :: TestTree
 parserProgramTests = testGroup "program" [testCase "parses programs" testParseProgram]
 
-parse :: String -> String -> IO ParsedProgram
-parse name source = assertRight name $ runAlex source parseProgram
+parse :: String -> String -> IO ParsedRepl
+parse name source = assertRight name $ runAlex source parseRepl
 
-singleDecl :: ParsedProgram -> Maybe ParsedDecl
+singleDecl :: ParsedRepl -> Maybe ParsedDecl
 singleDecl = \case
-  Program [TopLevelStmt (ParsedStmt _ (ParsedDeclStmt decl))] -> Just decl
+  Repl [ReplStmt (ParsedStmt _ (ParsedDeclStmt decl))] -> Just decl
   _ -> Nothing
 
-singleExpr :: ParsedProgram -> Maybe ParsedExpr
+singleExpr :: ParsedRepl -> Maybe ParsedExpr
 singleExpr = \case
-  Program [TopLevelStmt (ParsedStmt _ (ParsedExprStmt expr))] -> Just expr
+  Repl [ReplStmt (ParsedStmt _ (ParsedExprStmt expr))] -> Just expr
+  Repl [ReplExpr expr] -> Just expr
   _ -> Nothing
 
 isIntSyntax :: TypeSyntax -> Bool
@@ -37,7 +38,7 @@ isBinary expectedOp left right = \case
   ParsedExpr _ (ParsedBinaryExpr actualOp l r) -> expectedOp == actualOp && left l && right r
   _ -> False
 
-expect :: String -> Bool -> ParsedProgram -> IO ()
+expect :: String -> Bool -> ParsedRepl -> IO ()
 expect _ True _ = return ()
 expect name False ast = error $ "unexpected AST for " ++ name ++ ": " ++ show ast
 
@@ -61,7 +62,7 @@ testParseProgram = do
   ast7 <- parse "parse parenthesized expression" "value: i32 = (1 + 2) * 3;"
   expect "parenthesized expression" (case singleDecl ast7 of Just (ParsedValueDecl Mutable _ (Just typ) (Just (ParsedExpr _ (ParsedBinaryExpr MulOp (ParsedExpr _ (ParsedBinaryExpr AddOp (ParsedExpr _ (ParsedIntLit 1)) (ParsedExpr _ (ParsedIntLit 2)))) (ParsedExpr _ (ParsedIntLit 3)))))) -> isIntSyntax typ; _ -> False) ast7
 
-  ast8 <- parse "parse bare expression as program" "1 + 2;"
+  ast8 <- parse "parse bare expression" "1 + 2;"
   expect "bare expression" (case singleExpr ast8 of Just (ParsedExpr _ (ParsedBinaryExpr AddOp (ParsedExpr _ (ParsedIntLit 1)) (ParsedExpr _ (ParsedIntLit 2)))) -> True; _ -> False) ast8
 
   ast9 <- parse "parse variable reference as expression" "x;"
