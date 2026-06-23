@@ -205,8 +205,9 @@ evalVarExpr pos name = do
     Nothing -> panicAt pos ("undefined variable '" ++ name ++ "' reached evaluator")
 
 evalFnExpr :: [TypedParam] -> Type -> TypedBlock -> Eval Value
-evalFnExpr params ret body =
-  return $ VFunction params ret body
+evalFnExpr params ret body = do
+  env <- get
+  return $ VFunction params ret body env
 
 evalCallExpr :: AlexPosn -> TypedExpr -> [TypedExpr] -> Eval Value
 evalCallExpr pos callee args = do
@@ -215,12 +216,12 @@ evalCallExpr pos callee args = do
   callValue pos fn argVals
 
 callValue :: AlexPosn -> Value -> [Value] -> Eval Value
-callValue pos (VFunction params _ body) argVals = do
+callValue pos (VFunction params _ body capturedEnv) argVals = do
   if length params /= length argVals
     then panicAt pos ("wrong number of arguments: expected " ++ show (length params) ++ ", got " ++ show (length argVals))
     else do
       callerEnv <- get
-      modify $ const $ bindArgs params argVals (pushScope (globalEnv callerEnv))
+      modify $ const $ bindArgs params argVals (pushScope capturedEnv)
       val <- evalBlock body
       modify $ const callerEnv
       return val
@@ -337,7 +338,7 @@ installFunctionItems stmts = do
   let extendedEnv = foldl addFn env fns
         where
           addFn env' (name, params, ret, body) =
-            let closure = VFunction params ret body
+            let closure = VFunction params ret body extendedEnv
              in bindInCurrentScope name closure env'
   put extendedEnv
 

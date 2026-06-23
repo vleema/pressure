@@ -283,7 +283,7 @@ checkFnExpr pos params ret body = do
   typedParams <- mapM checkParam params
   outerState <- get
   let env = fst outerState
-  put (pushScope (globalEnv env), [])
+  put (pushScope env, [])
   mapM_ bindTypedParam typedParams
   typedBody <- checkBlockM body
   put outerState
@@ -565,5 +565,3 @@ checkReplInput = \case
     | isJust $ functionItem stmt -> ReplStmt <$> checkFunctionItemStmt stmt
     | otherwise -> ReplStmt <$> checkStmtM stmt
   ReplExpr expr -> ReplExpr <$> checkExprM expr
-
-

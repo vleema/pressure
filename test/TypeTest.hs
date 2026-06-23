@@ -84,7 +84,7 @@ testTopLevelTypes = do
   assertOk "mutual recursion type checks" $ checkSource "even :: fn(n: i32) -> bool { if n == 0 { true } else { odd(n - 1) } }; odd :: fn(n: i32) -> bool { if n == 0 { false } else { even(n - 1) } };"
   assertOk "forward function reference type checks" $ checkSource "result: i32 = f(); f :: fn() -> i32 { 1 };"
   assertOk "function uses preceding global" $ checkSource "x :: 10; f :: fn() -> i32 { x }; result: i32 = f();"
-  assertLeft "function does not capture local" $ checkSource "outer :: fn(x: i32) -> i32 { helper :: fn() -> i32 { x }; helper() };"
+  assertOk "function does capture local" $ checkSource "outer :: fn(x: i32) -> i32 { helper :: fn() -> i32 { x }; helper() };"
   assertLeft "if without else cannot produce int" $
     checkProgram
       ( Program

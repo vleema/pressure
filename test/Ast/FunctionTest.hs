@@ -10,9 +10,9 @@ import Control.Monad.State (runStateT)
 import Eval (evalRepl, evalReplInput)
 import Lexer (runAlex)
 import Parser (parseRepl)
-import TestUtil
 import Test.Tasty (TestTree, testGroup)
 import Test.Tasty.HUnit (testCase)
+import TestUtil
 
 functionTests :: TestTree
 functionTests =
@@ -24,11 +24,11 @@ functionTests =
       testCase "keeps function scope local" testFunctionLocalScope,
       testCase "evaluates direct recursion" testDirectRecursion,
       testCase "evaluates top-level mutual recursion" testTopLevelMutualRecursion,
-      testCase "rejects local mutual recursion" testLocalMutualRecursionRejected,
+      testCase "accepts local mutual recursion" testLocalMutualRecursion,
       testCase "evaluates forward function references" testForwardFunctionReference,
       testCase "evaluates function global access" testFunctionUsesGlobal,
       testCase "evaluates repl recursive functions" testReplRecursiveFunction,
-      testCase "rejects nested function capture" testNestedFunctionCaptureRejected
+      testCase "accepts nested function capture" testNestedFunctionCapture
     ]
 
 testUnitFunctionSugar :: IO ()
@@ -93,9 +93,9 @@ testTopLevelMutualRecursion = do
           other -> error $ "expected result = true, got " ++ show other
       Left err -> error $ "eval failed: " ++ show err
 
-testLocalMutualRecursionRejected :: IO ()
-testLocalMutualRecursionRejected = do
-  checkErr "local mutual recursion rejected" "outer :: fn(n: i32) -> bool { even :: fn(x: i32) -> bool { if x == 0 { true } else { odd(x - 1) } }; odd :: fn(x: i32) -> bool { if x == 0 { false } else { even(x - 1) } }; even(n) }; result: bool = outer(9);"
+testLocalMutualRecursion :: IO ()
+testLocalMutualRecursion = do
+  checkOk "local mutual recursion" "outer :: fn(n: i32) -> bool { even :: fn(x: i32) -> bool { if x == 0 { true } else { odd(x - 1) } }; odd :: fn(x: i32) -> bool { if x == 0 { false } else { even(x - 1) } }; even(n) }; result: bool = outer(9);"
 
 testForwardFunctionReference :: IO ()
 testForwardFunctionReference = do
@@ -138,6 +138,6 @@ testReplRecursiveFunction = do
                 Left err -> error $ "repl recursive call eval failed: " ++ show err
             Right (Repl other, _) -> error $ "expected single expression, got " ++ show (length other) ++ " inputs"
 
-testNestedFunctionCaptureRejected :: IO ()
-testNestedFunctionCaptureRejected = do
-  checkErr "nested function capture rejected" "outer :: fn(x: i32) -> i32 { helper :: fn(n: i32) -> i32 { if n == 0 { x } else { helper(n - 1) } }; helper(3) }; result: i32 = outer(7);"
+testNestedFunctionCapture :: IO ()
+testNestedFunctionCapture = do
+  checkOk "nested function capture" "outer :: fn(x: i32) -> i32 { helper :: fn(n: i32) -> i32 { if n == 0 { x } else { helper(n - 1) } }; helper(3) }; result: i32 = outer(7);"

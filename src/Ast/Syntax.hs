@@ -48,6 +48,7 @@ module Ast.Syntax
 where
 
 import Data.List (intercalate)
+import Data.Map (Map)
 import Lexer (AlexPosn (..))
 
 newtype Program stmt = Program [TopLevel stmt]
@@ -260,13 +261,15 @@ data TypedExprKind
   | TypedContinueExpr
   deriving (Show, Eq)
 
+type Env = [Map String Value]
+
 data Value
   = VInt Sign IntSize Integer
   | VFloat FloatSize Double
   | VBool Bool
   | VUnit
   | VEmpty
-  | VFunction [TypedParam] Type TypedBlock
+  | VFunction [TypedParam] Type TypedBlock Env
   deriving (Eq)
 
 instance Show Value where
