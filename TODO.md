@@ -31,6 +31,13 @@
   add :: fn(a,b:int) -> int { ... };
   ```
 
+- [ ] Sugar for integer types, e.g.:
+
+  ```odin
+  x: u32 = 42;
+  x == 42; // <- should be true! But 42 has type i32 while uint has type u32.
+  ```
+
 - [ ] Syntactic sugar for `else if`. - Victor
 
 ### Std
