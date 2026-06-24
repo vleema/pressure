@@ -133,10 +133,10 @@ checkWhileExpr pos cond body mElse = do
   breakTypes <- popLoop
   te <- traverse checkBlockM mElse
   ty <- case (blockType <$> te, breakTypes) of
-    (Nothing, []) -> return UnitT
     (Just _, []) -> liftEither $ Left $ ElseWithoutBreak pos
-    (Nothing, _ : _) -> liftEither $ Left $ MissingLoopElse pos
     (Just t, _) -> liftEither $ foldM (unifyTypes pos) t breakTypes
+    (Nothing, []) -> return UnitT
+    (Nothing, _ : _) -> return UnitT
 
   return $ TypedExpr pos ty (TypedWhileExpr tc tb te)
 

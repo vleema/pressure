@@ -19,6 +19,8 @@ controlTests =
       testCase "evaluates unary negation" testUnaryNegEval,
       testCase "evaluates unary not" testUnaryNotEval,
       testCase "evaluates while else on false" testWhileElseFalse,
+      testCase "checks empty while" testEmptyWhile,
+      testCase "checks while break" testWhileBreak,
       testCase "evaluates while else on true with break" testWhileBreakValue,
       testCase "evaluates while as statement" testWhileStatement,
       testCase "evaluates while continue" testWhileContinue,
@@ -79,6 +81,14 @@ testUnaryNotEval = do
           Just (VBool True) -> return ()
           other -> error $ "expected x = true, got " ++ show other
       Left err -> error $ "eval failed: " ++ show err
+
+testEmptyWhile :: IO ()
+testEmptyWhile = do
+  checkOk "empty while" "while true { };"
+
+testWhileBreak :: IO ()
+testWhileBreak = do
+  checkOk "while with only break" "while true { break; };"
 
 testWhileElseFalse :: IO ()
 testWhileElseFalse = do
