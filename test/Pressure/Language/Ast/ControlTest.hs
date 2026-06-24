@@ -16,6 +16,7 @@ controlTests =
     [ testCase "evaluates if expressions" testIfExpressionEval,
       testCase "evaluates if statements" testIfStatementEval,
       testCase "evaluates if-else statements" testIfElseStatementEval,
+      testCase "evaluates else-if statements" testElseIfStatementEval,
       testCase "evaluates unary negation" testUnaryNegEval,
       testCase "evaluates unary not" testUnaryNotEval,
       testCase "evaluates while else on false" testWhileElseFalse,
@@ -58,6 +59,17 @@ testIfElseStatementEval = do
         case lookupValue "x" env of
           Nothing -> return ()
           other -> error $ "expected x to be absent, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testElseIfStatementEval :: IO ()
+testElseIfStatementEval = do
+  withTokens "else if statement eval" "x := if false { 1.0 } else if false { 42.0 } else if true { 5.0 } else { 30.0 };" $ \ast -> do
+    result <- evalParsed "else if statement eval" ast
+    case result of
+      Right (_, env) ->
+        case lookupValue "x" env of
+          Just x -> assertEqual "x equals 5.0" x (VFloat F64 5.0)
+          other -> error $ "expected z to be preset, got " ++ show other
       Left err -> error $ "eval failed: " ++ show err
 
 testUnaryNegEval :: IO ()

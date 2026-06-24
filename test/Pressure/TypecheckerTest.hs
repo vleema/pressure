@@ -72,6 +72,28 @@ testIfFnExprTypes = do
               (Just (Block [] (Just (expr (ParsedIntLit 2)))))
           )
       )
+  assertEqual "else if desugared expression type" (Right intType) $
+    checkExprType
+      ( expr
+          ( ParsedIfExpr
+              (expr (ParsedBoolLit True))
+              (Block [] (Just (expr (ParsedIntLit 1))))
+              ( Just
+                  ( Block
+                      []
+                      ( Just
+                          ( expr
+                              ( ParsedIfExpr
+                                  (expr (ParsedBoolLit False))
+                                  (Block [] (Just (expr (ParsedIntLit 2))))
+                                  (Just (Block [] (Just (expr (ParsedIntLit 3)))))
+                              )
+                          )
+                      )
+                  )
+              )
+          )
+      )
   assertEqual "function expression type" (Right (FnT [intType] intType)) $ checkExprType fnIdExpr
   assertLeft "calling non-function unsupported" $ checkExprType (expr (ParsedCallExpr (expr (ParsedIntLit 1)) []))
   assertLeft "function call arity mismatch" $ checkExprType (expr (ParsedCallExpr fnIdExpr []))

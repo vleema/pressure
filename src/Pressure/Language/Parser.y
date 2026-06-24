@@ -134,9 +134,10 @@ Expr : IfExpr        { $1 }
      | LogicalOrExpr { $1 }
      | TypeLitExpr   { ParsedExpr (typePos $1) (ParsedTypeLit $1) }
 
-IfExpr : if Expr Block            { ParsedExpr (token_posn $1) (ParsedIfExpr $2 $3 Nothing) }
-       | if Expr Block else Block { ParsedExpr (token_posn $1) (ParsedIfExpr $2 $3 (Just $5)) }
-
+IfExpr : if Expr Block ElseBranch           { ParsedExpr (exprPos $2) (ParsedIfExpr $2 $3 $4) }
+ElseBranch : else Block         { Just $2 }
+           | else Expr          { Just (Block [] (Just $2)) }
+           | {- empty -}        { Nothing }
 WhileExpr : while Expr Block            { ParsedExpr (token_posn $1) (ParsedWhileExpr $2 $3 Nothing) }
           | while Expr Block else Block { ParsedExpr (token_posn $1) (ParsedWhileExpr $2 $3 (Just $5)) }
 
