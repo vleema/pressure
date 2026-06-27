@@ -31,7 +31,7 @@ instance Show Value where
     VUnit -> "()"
     VType t -> prettyType t
     VFunction {} -> "<function>"
-    VArray list -> "[" ++ show list ++ "]"
+    VArray list -> show list
     VBuiltin n -> "<builtin " ++ n ++ ">"
     VStruct fields -> "struct { " ++ intercalate ", " (map (\(n, v) -> n ++ " = " ++ show v) fields) ++ " }"
     VEmpty -> undefined

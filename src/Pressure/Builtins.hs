@@ -19,7 +19,9 @@ initialValueEnv =
   [ Map.fromList
       [ ("@read", VBuiltin "@read"),
         ("@printf", VBuiltin "@printf"),
-        ("@as", VBuiltin "@as")
+        ("@as", VBuiltin "@as"),
+        ("@push", VBuiltin "@push"),
+        ("@pop", VBuiltin "@pop")
       ]
   ]
 
@@ -28,7 +30,9 @@ initialTypeEnv =
   [ Map.fromList
       [ ("@read", (FnT [] StringT, Constant)),
         ("@printf", (FnT [StringT] UnitT, Constant)),
-        ("@as", (FnT [TypeT, AnyTypeT] AnyTypeT, Constant))
+        ("@as", (FnT [TypeT, AnyTypeT] AnyTypeT, Constant)),
+        ("@push", (FnT [ArrT AnyTypeT, AnyTypeT] (ArrT AnyTypeT), Constant)),
+        ("@pop",  (FnT [ArrT AnyTypeT] (ArrT AnyTypeT), Constant))
       ]
   ]
 
@@ -37,6 +41,8 @@ dispatchBuiltin pos name args = case name of
   "@read" -> dispatchRead pos args
   "@printf" -> dispatchPrintf pos args
   "@as" -> dispatchAs pos args
+  "@push" -> dispatchPush pos args
+  "@pop" -> dispatchPop pos args
   _ -> panicAt pos ("unknown builtin: " ++ name)
 
 dispatchRead :: AlexPosn -> [Value] -> Eval Value
@@ -86,6 +92,7 @@ isPrintable = \case
   BoolT -> True
   StringT -> True
   UnitT -> True
+  ArrT {} -> True
   _ -> False
 
 isPrintf :: TypedExpr -> Bool
@@ -189,3 +196,19 @@ castValue pos target value = case (target, value) of
   (StringT, VUnit) -> return $ VString "()"
   (UnitT, VUnit) -> return VUnit
   _ -> panicAt pos $ "internal: unmatched @as target type '" ++ prettyType target ++ "'"
+
+
+dispatchPush :: AlexPosn -> [Value] -> Eval Value
+dispatchPush pos = \case
+  [VArray elements, value] -> 
+    return (VArray (elements ++ [value]))
+  
+  _ -> panicAt pos "@push recieves an array and a value" 
+
+dispatchPop :: AlexPosn -> [Value] -> Eval Value
+dispatchPop pos = \case
+  [VArray []] -> 
+    return (VArray [])
+  [VArray elements] -> 
+    return $ VArray (init elements)
+  _ -> panicAt pos "@pop expects only an array"

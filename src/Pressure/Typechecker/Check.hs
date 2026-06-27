@@ -3,7 +3,6 @@ module Pressure.Typechecker.Check where
 import Control.Monad (foldM, unless, when)
 import Control.Monad.Except (MonadError (throwError), liftEither)
 import Control.Monad.State (MonadState (..), StateT (runStateT), put)
-import Data.Functor (void)
 import Data.List (sortOn)
 import Data.Map qualified as Map
 import Data.Maybe (isJust, mapMaybe)
@@ -38,7 +37,6 @@ checkType (TypeSyntax pos k) = case k of
   IntSyntax sign size -> return $ IntT sign size
   FloatSyntax size -> return $ FloatT size
   FnSyntax params ret -> FnT <$> mapM checkType params <*> checkType ret
-  UnitSyntax -> return UnitT
   StructSyntax structItems -> do
     fields <- checkStructFields structItems
     members <- checkStructMembers Nothing fields structItems
@@ -383,14 +381,13 @@ checkArrayLit pos (first : rest) = do
 checkIndexExpr :: AlexPosn -> ParsedExpr -> ParsedExpr -> Check TypedExpr
 checkIndexExpr pos base idx = do
   typedBase <- checkExprM base
-  typedIdx <- checkExprM idx
 
   -- 1. Enforce that the index expression resolves to an integer
+  typedIdx <- checkExprM idx
   case typeOf typedIdx of
     IntT _ _ -> return ()
     other -> liftEither $ Left $ TypeMismatch (typedExprPos typedIdx) (IntT Signed I32) other
 
-  -- 2. Validate that the entity being indexed is an array
   case typeOf typedBase of
     ArrT innerType ->
       return $ TypedExpr pos innerType (TypedIndexExpr typedBase typedIdx)

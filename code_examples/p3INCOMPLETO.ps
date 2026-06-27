@@ -1,0 +1,26 @@
+main :: fn(){
+    m :: @as(int, @read());
+    n :: @as(int, @read());
+    i := 0;
+    mat :[][] int = [[0]];
+    mat = @pop(mat[0]);
+    while i < m{
+        j := 0;
+        line : []int = [];
+        while j < n{
+            x :: @as(int, @read());
+            line = @push(line, x);
+            j = j+1;
+        };
+        mat = @push(mat, line);
+        i = i + 1;
+    };
+    i = 0;
+    while i < m{
+        @printf("{}\n", mat[i]);
+        i = i + 1;
+    };
+};
+
+
+main();
