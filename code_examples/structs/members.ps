@@ -1,0 +1,73 @@
+rational_t :: struct {
+    num : i32,
+    den : i32,
+    eq :: fn (this : rational_t, r : rational_t) -> bool {
+        (this.num * r.den) == (this.den * r.num)
+    } ;
+};
+
+rationalize :: fn(a : i32, b : i32) -> rational_t {
+    rational_t {num=a, den=b}
+};
+
+rational_sum :: fn(a :  rational_t, b :  rational_t) ->  rational_t {
+    rational_t {num = a.num * b.den + a.den * b.num, den = a.den * b.den}
+};
+
+rational_neg :: fn(a :  rational_t) ->  rational_t {
+    rational_t {num = -a.num, den = a.den}
+};
+
+rational_sub :: fn(a :  rational_t, b :  rational_t) ->  rational_t {
+    rational_t {num = a.num * b.den - a.den * b.num, den = a.den * b.den}
+};
+
+rational_mul :: fn(a :  rational_t, b :  rational_t) ->  rational_t {
+    rational_t {num = a.num * b.num, den = a.den * b.den}
+};
+
+rational_inv :: fn(a :  rational_t) ->  rational_t {
+    rational_t {num = a.den, den = a.num}
+};
+
+rational_div :: fn(a :  rational_t, b :  rational_t) ->  rational_t {
+    rational_t {num = a.num * b.den, den = a.den * b.num}
+};
+
+rational_equals :: fn(a :  rational_t, b :  rational_t) -> bool {
+     (a.num * b.den) == (a.den * b.num)
+};
+
+main :: fn() {
+    a :: 5;
+    b :: 10;
+    c :: 2;
+    d :: 4;
+
+    r1 := rationalize(a, b);
+    r2 := rationalize(c, d);
+
+    @printf("r1: {}/{}\n", r1.num, r1.den);
+    @printf("r2: {}/{}\n", r2.num, r2.den);
+    @printf("r1 == r2: {}\n", rational_t.eq(r1, r2));
+
+    r_sum := rational_sum(r1, r2);
+    @printf("r1 + r2 = {}/{}\n", r_sum.num, r_sum.den);
+
+    r_neg := rational_neg(r1);
+    @printf("-r1 = {}/{}\n", r_neg.num, r_neg.den);
+
+    r_sub := rational_sub(r1, r2);
+    @printf("r1 - r2 = {}/{}\n", r_sub.num, r_sub.den);
+
+    r_mul := rational_mul(r1, r2);
+    @printf("r1 * r2 = {}/{}\n", r_mul.num, r_mul.den);
+
+    r_inv := rational_inv(r1);
+    @printf("1/r1 = {}/{}\n", r_inv.num, r_inv.den);
+
+    r_div := rational_div(r1, r2);
+    @printf("r1 / r2 = {}/{}\n", r_div.num, r_div.den);
+};
+
+main();

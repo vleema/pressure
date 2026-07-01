@@ -1,0 +1,7 @@
+main :: fn () {
+    Test :: struct {a : i32, b : struct { c : f64}, d : fn (int) -> int};
+    instance : Test = Test {a=1, b = .{c = 10.1}, d = fn(x:int) -> int {x + 1}};
+    @printf("{}", instance.d(10));
+
+
+}
