@@ -146,6 +146,7 @@ test-suite pressure-lang-test
     Pressure.Typechecker.ErrorTest
     Pressure.Typechecker.FunctionTest
     Pressure.Typechecker.LiteralTest
+    Pressure.Typechecker.StructTest
     Pressure.TypecheckerTest
 
   build-depends:

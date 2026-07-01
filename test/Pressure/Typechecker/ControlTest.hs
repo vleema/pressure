@@ -17,6 +17,7 @@ controlTypeTests =
       testCase "rejects missing loop else" testWhileElseFalse,
       testCase "checks if expression type" testIfExprType,
       testCase "checks else-if desugared expression type" testElseIfExprType,
+      testCase "checks else-if syntactic sugar" testElseIfSugar,
       testCase "checks function expression type" testFnExprType,
       testCase "rejects calling non-function" testCallNonFnError,
       testCase "rejects function call arity mismatch" testCallArityMismatch,
@@ -84,6 +85,9 @@ testElseIfExprType =
               )
           )
       )
+
+testElseIfSugar :: IO ()
+testElseIfSugar = checkOk "else if syntactic sugar type checks" "foo :: fn(x: i32) -> i32 { if x == 1 { 10 } else if x == 2 { 20 } else { 30 } };"
 
 testFnExprType :: IO ()
 testFnExprType =

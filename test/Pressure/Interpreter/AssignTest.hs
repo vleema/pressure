@@ -21,7 +21,10 @@ assignTests =
       testCase "compound subtract" testCompoundSub,
       testCase "compound multiply" testCompoundMul,
       testCase "compound divide int" testCompoundDivInt,
-      testCase "compound divide float" testCompoundDivFloat
+      testCase "compound divide float" testCompoundDivFloat,
+      testCase "assigns struct fields" testStructFieldAssign,
+      testCase "assigns nested struct fields" testNestedStructFieldAssign,
+      testCase "compound assignments on struct fields" testCompoundStructFieldAssign
     ]
 
 testMutableAssign :: IO ()
@@ -124,4 +127,37 @@ testCompoundDivFloat =
               then return ()
               else error $ "expected x ≈ 3.333, got " ++ show v
           other -> error $ "expected float, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testStructFieldAssign :: IO ()
+testStructFieldAssign =
+  withTokens "struct field assign" "s : struct { x: int } : .{ x = 1 }; s.x = 42;" $ \ast -> do
+    result <- evalParsed "struct field assign" ast
+    case result of
+      Right (_, env) ->
+        case lookupValue "s" env of
+          Just (VStruct [("x", VInt Signed I32 42)]) -> return ()
+          other -> error $ "expected s.x = 42, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testNestedStructFieldAssign :: IO ()
+testNestedStructFieldAssign =
+  withTokens "nested struct field assign" "s : struct { inner: struct { y: int } } : .{ inner = .{ y = 1 } }; s.inner.y = 100;" $ \ast -> do
+    result <- evalParsed "nested struct field assign" ast
+    case result of
+      Right (_, env) ->
+        case lookupValue "s" env of
+          Just (VStruct [("inner", VStruct [("y", VInt Signed I32 100)])]) -> return ()
+          other -> error $ "expected s.inner.y = 100, got " ++ show other
+      Left err -> error $ "eval failed: " ++ show err
+
+testCompoundStructFieldAssign :: IO ()
+testCompoundStructFieldAssign =
+  withTokens "compound struct field assign" "s : struct { x: int } : .{ x = 5 }; s.x += 10;" $ \ast -> do
+    result <- evalParsed "compound struct field assign" ast
+    case result of
+      Right (_, env) ->
+        case lookupValue "s" env of
+          Just (VStruct [("x", VInt Signed I32 15)]) -> return ()
+          other -> error $ "expected s.x = 15, got " ++ show other
       Left err -> error $ "eval failed: " ++ show err

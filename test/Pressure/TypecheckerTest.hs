@@ -6,6 +6,7 @@ import Pressure.Typechecker.ControlTest (controlTypeTests)
 import Pressure.Typechecker.ErrorTest (errorTypeTests)
 import Pressure.Typechecker.FunctionTest (functionTypeTests)
 import Pressure.Typechecker.LiteralTest (literalTypeTests)
+import Pressure.Typechecker.StructTest (structTypeTests)
 import Test.Tasty (TestTree, testGroup)
 
 typeTests :: TestTree
@@ -17,5 +18,6 @@ typeTests =
       assignTypeTests,
       errorTypeTests,
       controlTypeTests,
-      functionTypeTests
+      functionTypeTests,
+      structTypeTests
     ]
